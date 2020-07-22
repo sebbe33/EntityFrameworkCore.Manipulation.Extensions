@@ -16,22 +16,34 @@ namespace EntityFrameworkCore.Manipulation.Extensions
     /// </summary>
     public static class SyncExtensions
     {
-        public static Task<SyncResult<TEntity>> SyncAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> target, IReadOnlyCollection<TEntity> source, CancellationToken cancellationToken = default)
-            where TEntity : class, new()
-            => SyncInternalAsync(
-                dbContext ?? throw new ArgumentNullException(nameof(dbContext)),
-                target ?? throw new ArgumentNullException(nameof(target)),
-                source ?? throw new ArgumentNullException(nameof(source)),
-                ignoreUpdates: false, // this is a full sync
-                cancellationToken);
-
-        public static async Task<SyncWithoutUpdateResult<TEntity>> SyncWithoutUpdateAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> target, IReadOnlyCollection<TEntity> source, CancellationToken cancellationToken = default)
+        public static async Task<ISyncResult<TEntity>> SyncAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> target, IReadOnlyCollection<TEntity> source, CancellationToken cancellationToken = default)
             where TEntity : class, new()
             => await SyncInternalAsync(
                 dbContext ?? throw new ArgumentNullException(nameof(dbContext)),
                 target ?? throw new ArgumentNullException(nameof(target)),
                 source ?? throw new ArgumentNullException(nameof(source)),
-                ignoreUpdates: true, // this is a partial sync
+                ignoreUpdates: false, // this is a full sync
+                ignoreDeletions: false,
+                cancellationToken);
+
+        public static async Task<ISyncWithoutUpdateResult<TEntity>> SyncWithoutUpdateAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> target, IReadOnlyCollection<TEntity> source, CancellationToken cancellationToken = default)
+            where TEntity : class, new()
+            => await SyncInternalAsync(
+                dbContext ?? throw new ArgumentNullException(nameof(dbContext)),
+                target ?? throw new ArgumentNullException(nameof(target)),
+                source ?? throw new ArgumentNullException(nameof(source)),
+                ignoreUpdates: true, // this is a sync without updates
+                ignoreDeletions: false,
+                cancellationToken);
+
+        public static async Task<IUpsertResult<TEntity>> UpsertAsync<TEntity>(this DbContext dbContext, IReadOnlyCollection<TEntity> source, CancellationToken cancellationToken = default)
+            where TEntity : class, new()
+            => await SyncInternalAsync(
+                dbContext ?? throw new ArgumentNullException(nameof(dbContext)),
+                dbContext.Set<TEntity>(),
+                source ?? throw new ArgumentNullException(nameof(source)),
+                ignoreUpdates: false,
+                ignoreDeletions: true, // this is a sync for upserts
                 cancellationToken);
 
         private static async Task<SyncResult<TEntity>> SyncInternalAsync<TEntity>(
@@ -39,6 +51,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             IQueryable<TEntity> target, 
             IReadOnlyCollection<TEntity> source, 
             bool ignoreUpdates,
+            bool ignoreDeletions,
             CancellationToken cancellationToken = default)
             where TEntity : class, new()
         {
@@ -82,16 +95,25 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                     stringBuilder.Append("WHERE ").AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"target.{property.Name} IS NULL")));
                 }
 
+                if (!ignoreDeletions)
+                {
+                    stringBuilder
+                        .AppendLine()
+                        .AppendLine("UNION")
+                        .Append("SELECT 'DELETE' AS _$action, ")
+                            .AppendColumnNames(properties, false, "source", SourceAliaser).Append(", ")
+                            .AppendColumnNames(properties, false, "target", TargetAliaser)
+                            .Append("FROM target LEFT OUTER JOIN source ON ").AppendJoinCondition(primaryKey)
+                            .Append("WHERE ").AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"source.{property.Name} IS NULL"))).AppendLine(";")
+                        .Append("DELETE FROM ").Append(tableName).Append(" WHERE EXISTS (SELECT 1 FROM EntityFrameworkManipulationSync WHERE _$action='DELETE' AND ")
+                            .AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"{property.Name}={TargetAliaser(property.Name)}"))).AppendLine(");");
+                }
+                else
+                {
+                    stringBuilder.AppendLine(";");
+                }
+
                 stringBuilder
-                    .AppendLine()
-                    .AppendLine("UNION")
-                    .Append("SELECT 'DELETE' AS _$action, ")
-                        .AppendColumnNames(properties, false, "source", SourceAliaser).Append(", ")
-                        .AppendColumnNames(properties, false, "target", TargetAliaser)
-                        .Append("FROM target LEFT OUTER JOIN source ON ").AppendJoinCondition(primaryKey)
-                        .Append("WHERE ").AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"source.{property.Name} IS NULL"))).AppendLine(";")
-                    .Append("DELETE FROM ").Append(tableName).Append(" WHERE EXISTS (SELECT 1 FROM EntityFrameworkManipulationSync WHERE _$action='DELETE' AND ")
-                        .AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"{property.Name}={TargetAliaser(property.Name)}"))).AppendLine(");")
                     .Append("INSERT OR REPLACE INTO ").Append(tableName).AppendColumnNames(properties, true)
                         .Append(" SELECT ").AppendJoin(",", properties.Select(m => SourceAliaser(m.GetColumnName())))
                         .AppendLine(" FROM EntityFrameworkManipulationSync WHERE _$action='INSERT' OR _$action='UPDATE';")
@@ -110,12 +132,16 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                     .Append("WHEN NOT MATCHED BY TARGET THEN INSERT ")
                         .AppendColumnNames(properties, wrapInParanthesis: true).Append("VALUES ")
                         .AppendColumnNames(properties, wrapInParanthesis: true, identifierPrefix: "source")
-                        .AppendLine(" ")
-                    .AppendLine("WHEN NOT MATCHED BY SOURCE THEN DELETE");
+                        .AppendLine();
 
                 if (!ignoreUpdates)
                 {
                     stringBuilder.Append("WHEN MATCHED THEN UPDATE SET ").AppendJoin(",", nonPrimaryKeyProperties.Select(property => FormattableString.Invariant($"{property.Name}=source.{property.Name}"))).AppendLine();
+                }
+
+                if (!ignoreDeletions)
+                {
+                    stringBuilder.AppendLine("WHEN NOT MATCHED BY SOURCE THEN DELETE");
                 }
 
                 stringBuilder

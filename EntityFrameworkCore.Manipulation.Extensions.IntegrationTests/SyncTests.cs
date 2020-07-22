@@ -496,6 +496,118 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
                 .Concat(expectedEntitiesInTargetAfterSync.Where(e => e.Id.StartsWith("TO BE INSERTED"))));
         }
 
+        [TestMethod]
+        public async Task UpsertAsync_ShouldInsertAndReturnEntities_WhenNoEntitiesExist()
+        {
+            using var context = await this.GetDbContext(seedData: null); // Note: no seed data => no entities exist
+
+            var expectedEntitiesToBeInserted = new[]
+            {
+                new TestEntity { Id = "2", IntTestValue = 222, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 15451455587546 },
+                new TestEntity { Id = "3", IntTestValue = 333, BoolTestValue = false, DateTimeTestValue = new DateTime(15645325746541), LongTestValue = 7451524264 },
+            };
+
+            // Invoke the method and check that the result is the expected entities
+            var result = await context.UpsertAsync(expectedEntitiesToBeInserted);
+
+            result.UpdatedEntities.Should().BeEmpty();
+            result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesToBeInserted);
+
+            // Then check that the right changes were persisted in the db.
+            context.TestEntities.ToList().Should().BeEquivalentTo(expectedEntitiesToBeInserted);
+        }
+
+        [TestMethod]
+        public async Task UpsertAsync_ShouldInsertAndReturnEntities_WhenNoMatchingEntitiesExistInTarget()
+        {
+            var existingEntities = new[]
+{
+                new TestEntity { Id = "1", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
+                new TestEntity { Id = "4", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
+            };
+            using var context = await this.GetDbContext(existingEntities);
+
+
+            var expectedEntitiesToBeInserted = new[]
+            {
+                new TestEntity { Id = "2", IntTestValue = 222, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 15451455587546 },
+                new TestEntity { Id = "3", IntTestValue = 333, BoolTestValue = false, DateTimeTestValue = new DateTime(15645325746541), LongTestValue = 7451524264 },
+            };
+
+
+            var result = await context.UpsertAsync(expectedEntitiesToBeInserted);
+
+            result.UpdatedEntities.Should().BeEmpty();
+            result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesToBeInserted);
+
+            // Then check that the right changes were persisted in the db.
+            context.TestEntities.ToList().Should().BeEquivalentTo(existingEntities.Concat(expectedEntitiesToBeInserted));
+        }
+
+        [TestMethod]
+        public async Task UpsertAsync_ShouldUpdateAndReturnEntities_WhenAllEntitiesMatchInTarget()
+        {
+            var existingEntities = new[]
+            {
+                new TestEntity { Id = "1", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
+                new TestEntity { Id = "Should Be Peristed 1", IntTestValue = 561645, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 54123 },
+                new TestEntity { Id = "4", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
+                new TestEntity { Id = "Should Be Peristed 2", IntTestValue = 9932165, BoolTestValue = false, DateTimeTestValue = new DateTime(654165132), LongTestValue = 5641324 },
+            };
+            using var context = await this.GetDbContext(existingEntities);
+
+
+            var expectedEntitiesToBeUpdated = new[]
+            {
+                new TestEntity { Id = "1", IntTestValue = 1111, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65132465 },
+                new TestEntity { Id = "4", IntTestValue = 4444, BoolTestValue = true, DateTimeTestValue = new DateTime(9841631654), LongTestValue = 2651354 },
+            };
+
+
+            var result = await context.UpsertAsync(expectedEntitiesToBeUpdated);
+
+            result.UpdatedEntities.Should().BeEquivalentTo(new[] { (existingEntities[0], expectedEntitiesToBeUpdated[0]), (existingEntities[2], expectedEntitiesToBeUpdated[1]) });
+            result.InsertedEntities.Should().BeEmpty();
+
+            // Then check that the the changes were synced to the db. The resulting table should not touch entries which did not match
+            context.TestEntities.ToList().Should().BeEquivalentTo(
+                existingEntities.Where(e => e.Id.StartsWith("Should Be Peristed"))
+                .Concat(expectedEntitiesToBeUpdated));
+        }
+
+        [TestMethod]
+        public async Task UpsertAsync_ShouldInsertAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsEntireTable()
+        {
+            // Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
+            var existingEntities = new[]
+            {
+                new TestEntity { Id = "Should Be Peristed 1", IntTestValue = 561645, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 54123 },
+                new TestEntity { Id = "TO BE UPDATED1", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
+                new TestEntity { Id = "TO BE UPDATED2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
+                new TestEntity { Id = "Should Be Peristed 2", IntTestValue = 9932165, BoolTestValue = false, DateTimeTestValue = new DateTime(654165132), LongTestValue = 5641324 },
+            };
+            using var context = await this.GetDbContext(existingEntities);
+
+            var expectedEntitiesInTargetAfterSync = new[]
+            {
+                new TestEntity { Id = "TO BE INSERTED 1", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
+                new TestEntity { Id = "TO BE INSERTED 2", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354 },
+                new TestEntity { Id = "TO BE UPDATED1", IntTestValue = 3216, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 89132453 },
+                new TestEntity { Id = "TO BE UPDATED2", IntTestValue = 651654, BoolTestValue = false, DateTimeTestValue = new DateTime(6541231654132163), LongTestValue = 21324351 },
+            };
+
+            // Invoke the method and check that the result is the expected entities
+            var result = await context.UpsertAsync(expectedEntitiesInTargetAfterSync);
+
+            result.UpdatedEntities.Should().BeEquivalentTo(new[] { (existingEntities[1], expectedEntitiesInTargetAfterSync[2]), (existingEntities[2], expectedEntitiesInTargetAfterSync[3]) });
+            result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Where(e => e.Id.StartsWith("TO BE INSERTED")));
+
+            // Then check that the the changes were synced to the db. The resulting table should not touch entries which did not match
+            context.TestEntities.ToList().Should().BeEquivalentTo(
+                existingEntities.Where(e => e.Id.StartsWith("Should Be Peristed"))
+                .Concat(expectedEntitiesInTargetAfterSync));
+        }
+
         private async Task<TestDbContext> GetDbContext(IEnumerable<TestEntity> seedData = null)
         {
             // var sqlConnection = new SqliteConnection("Data Source=C:\\Users\\Sebastian\\Documents\\projects\\test2.db;");

@@ -53,13 +53,13 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 stringBuilder.AppendLine("BEGIN TRANSACTION;")
                              .AppendLine("DROP TABLE IF EXISTS EntityFrameworkManipulationInsertIfNotExists;")
                              .Append("CREATE TEMP TABLE EntityFrameworkManipulationInsertIfNotExists AS ")
-                             .AppendSelectFromInlineTable(properties, entities, parameters, "source").AppendLine("WHERE NOT EXISTS (");
+                             .AppendSelectFromInlineTable(properties, entities, parameters, "source", sqliteSyntax: true).AppendLine("WHERE NOT EXISTS (");
 
                 // sub-query to filter out entities which already exist
                 stringBuilder.Append("SELECT 1 FROM ").Append(tableName).Append(" AS target WHERE ").AppendJoinCondition(primaryKey).AppendLine(");");
 
                 stringBuilder
-                    .AppendLine("INSERT INTO ").Append(tableName).AppendColumnNames(properties, wrapInParanthesis: true).Append("SELECT * FROM EntityFrameworkManipulationInsertIfNotExists;")
+                    .Append("INSERT INTO ").Append(tableName).AppendColumnNames(properties, wrapInParanthesis: true).Append("SELECT * FROM EntityFrameworkManipulationInsertIfNotExists;")
                     .AppendLine("SELECT * FROM EntityFrameworkManipulationInsertIfNotExists;")
                     .Append("COMMIT;");
             }
