@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29424.173
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EntityFrameworkCore.Manipulation.Extensions", "EntityFrameworkCore.Manipulation.Extensions\EntityFrameworkCore.Manipulation.Extensions.csproj", "{91C89D4E-AE7B-44A3-A289-35D15587BCD4}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EntityFrameworkCore.Manipulation.Extensions.IntegrationTests", "EntityFrameworkCore.Manipulation.Extensions.IntegrationTests\EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.csproj", "{7832F83F-7096-4A48-8F9E-3E793CA8346A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{91C89D4E-AE7B-44A3-A289-35D15587BCD4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{91C89D4E-AE7B-44A3-A289-35D15587BCD4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{91C89D4E-AE7B-44A3-A289-35D15587BCD4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{91C89D4E-AE7B-44A3-A289-35D15587BCD4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7832F83F-7096-4A48-8F9E-3E793CA8346A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7832F83F-7096-4A48-8F9E-3E793CA8346A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7832F83F-7096-4A48-8F9E-3E793CA8346A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7832F83F-7096-4A48-8F9E-3E793CA8346A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {03DC34BE-8D0C-410D-A3E2-921D9DA2B1C8}
+	EndGlobalSection
+EndGlobal
