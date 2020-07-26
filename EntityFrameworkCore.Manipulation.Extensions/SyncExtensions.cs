@@ -84,7 +84,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                              .AppendLine("target AS ( ")
                                 .Append(targetCommand)
                                 .AppendLine(") ")
-                             .Append("SELECT (CASE WHEN target.Id IS NULL THEN 'INSERT' ELSE 'UPDATE' END) AS _$action, ")
+                             .Append("SELECT (CASE WHEN (")
+								.AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"target.{property.Name} IS NULL")))
+								.Append(") THEN 'INSERT' ELSE 'UPDATE' END) AS _$action, ")
                                 .AppendColumnNames(properties, false, "source", SourceAliaser).Append(", ")
                                 .AppendColumnNames(properties, false, "target", TargetAliaser)
                                 .Append("FROM source LEFT OUTER JOIN target ON ").AppendJoinCondition(primaryKey);
@@ -92,7 +94,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 // We ignore updates by not taking any matches in target (leaving us with only inserts, but crutially the target.* columns)
                 if (ignoreUpdates)
                 {
-                    stringBuilder.Append("WHERE ").AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"target.{property.Name} IS NULL")));
+                    stringBuilder.Append("WHERE _$action = 'INSERT'");
                 }
 
                 if (!ignoreDeletions)
@@ -113,11 +115,23 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                     stringBuilder.AppendLine(";");
                 }
 
-                stringBuilder
-                    .Append("INSERT OR REPLACE INTO ").Append(tableName).AppendColumnNames(properties, true)
-                        .Append(" SELECT ").AppendJoin(",", properties.Select(m => SourceAliaser(m.GetColumnName())))
-                        .AppendLine(" FROM EntityFrameworkManipulationSync WHERE _$action='INSERT' OR _$action='UPDATE';")
-                    .Append("SELECT _$action, ")
+				// UPSERT
+				stringBuilder
+					.Append("INSERT OR REPLACE INTO ").Append(tableName).AppendColumnNames(properties, true)
+						.Append(" SELECT ").AppendJoin(",", properties.Select(m => SourceAliaser(m.GetColumnName())))
+						.AppendLine(" FROM EntityFrameworkManipulationSync WHERE _$action='INSERT' OR _$action='UPDATE' ");
+
+				// There's no need to update if all rows are included in the primary key as nothing has changed.
+				if (nonPrimaryKeyProperties.Any())
+				{
+					stringBuilder.Append("    ON CONFLICT").AppendColumnNames(primaryKey.Properties, true).Append(" DO UPDATE SET ")
+							.AppendJoin(",", nonPrimaryKeyProperties.Select(property => FormattableString.Invariant($"{property.Name}=excluded.{property.Name}")));
+				}
+				stringBuilder.AppendLine(";");
+							
+
+				// Select the output
+				stringBuilder.Append("SELECT _$action, ")
                         .AppendJoin(", ", primaryKey.Properties.Select(m => SourceAliaser(m.GetColumnName()))).Append(", ")
                         .AppendJoin(", ", properties.Select(m => TargetAliaser(m.GetColumnName())))
                         .AppendLine(" FROM EntityFrameworkManipulationSync;")

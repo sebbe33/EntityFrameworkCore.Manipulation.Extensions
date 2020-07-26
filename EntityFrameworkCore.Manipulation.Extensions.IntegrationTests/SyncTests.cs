@@ -1,4 +1,4 @@
-using EntityFrameworkCore.Manipulation.Extensions;
+﻿using EntityFrameworkCore.Manipulation.Extensions;
 using EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -204,7 +204,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         {
             var existingEntities = new[]
             {
-                new TestEntity { Id = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
+                new TestEntity { Id = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165, NullableEnumValue = TestEnum.Value1, NullableGuidValue = Guid.NewGuid() },
                 new TestEntity { Id = "TO BE DELETED2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
             using var context = await this.GetDbContext(existingEntities);

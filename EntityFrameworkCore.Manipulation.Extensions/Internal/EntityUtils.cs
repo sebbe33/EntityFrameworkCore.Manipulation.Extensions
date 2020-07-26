@@ -1,7 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 
 namespace EntityFrameworkCore.Manipulation.Extensions.Internal
 {
@@ -42,15 +44,65 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
             for (var i = 0; i < properties.Length; i++)
             {
                 var valueConverter = properties[i].GetValueConverter();
-                object rawValue = row[i + offset];
-                if (useExplicitConversion)
-                {
-                    var targetType = properties[i].PropertyInfo.PropertyType;
-                    rawValue = Convert.ChangeType(rawValue, targetType);
-                }
+                object rawValue = row[i + offset] is DBNull ? null : row[i + offset];
 
-                properties[i].PropertyInfo.SetValue(entity, valueConverter?.ConvertFromProvider(rawValue) ?? rawValue);
-            }
+				if (useExplicitConversion && valueConverter == null)
+				{
+					var targetType = properties[i].PropertyInfo.PropertyType;
+					var nullableUnderlyingType = Nullable.GetUnderlyingType(targetType);
+					if (nullableUnderlyingType != default)
+					{
+						targetType = nullableUnderlyingType;
+					}
+
+					if (rawValue == null)
+					{
+						// Nothing to convert
+					}
+					else if (targetType.IsEnum)
+					{
+						rawValue = rawValue is string enumValue
+							? Enum.Parse(targetType, enumValue, true)
+							: Convert.ChangeType(rawValue, targetType.GetEnumUnderlyingType());
+
+						if (nullableUnderlyingType != null)
+						{
+							rawValue = Enum.ToObject(targetType, rawValue);
+						}
+					}
+					else if (targetType == typeof(bool) && !(rawValue is bool))
+					{
+						valueConverter = new BoolToZeroOneConverter<int?>();
+					}
+					else if (targetType == typeof(DateTime) && !(rawValue is DateTime))
+					{
+						valueConverter = new DateTimeToStringConverter();
+					}
+					else if (targetType == typeof(Guid) && !(rawValue is Guid))
+					{
+						valueConverter = new GuidToStringConverter();
+					}
+					else
+					{
+						try
+						{
+							rawValue = Convert.ChangeType(rawValue, targetType);
+						}
+						catch (Exception e)
+						{
+							throw new Exception($"Failed to convert property '{properties[i].Name}'. See inner exception for details.", e);
+						}
+					}
+
+					if (rawValue != null)
+					{
+						properties[i].PropertyInfo.SetValue(entity, valueConverter?.ConvertFromProvider(rawValue) ?? rawValue);
+					}
+				}
+				else
+				{
+					properties[i].PropertyInfo.SetValue(entity, valueConverter?.ConvertFromProvider(rawValue) ?? rawValue);
+				}            }
 
             return entity;
         }
@@ -68,5 +120,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
 
             return true;
         }
+
+		private static T CastTo<T>(object obj) => (T)obj;
     }
 }

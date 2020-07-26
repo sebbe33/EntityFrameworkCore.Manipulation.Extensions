@@ -15,5 +15,15 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
         public long LongTestValue { get; set; }
 
         public DateTime DateTimeTestValue { get; set; }
-    }
+
+		public DateTime? NullableDateTimeTestValue { get; set; }
+
+		public Guid GuidValue { get; set; }
+
+		public Guid? NullableGuidValue { get; set; }
+
+		public TestEnum EnumValue { get; set; }
+
+		public TestEnum? NullableEnumValue { get; set; }
+	}
 }
