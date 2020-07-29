@@ -2,6 +2,17 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>false</DelaySign>
+    <AssemblyOriginatorKeyFile>EntityFrameworkCore.Manipulation.Extensions.SigningKey.snk</AssemblyOriginatorKeyFile>
+    <Version>1.0.0-preview</Version>
+    <Company />
+    <Authors>Sebastian Blomberg</Authors>
+    <PackageProjectUrl>https://github.com/sebbe33/EntityFrameworkCore.Manipulation.Extensions</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/sebbe33/EntityFrameworkCore.Manipulation.Extensions</RepositoryUrl>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <Description>A set of extensions for transactionally manipulating (Upsert, Merge, InsertIfNotExist) data and retrieving the results with Entity Framework Core.</Description>
+    <PackageTags>EntityFrameworkCore, EntityFramework, Upsert, Merge, Sync</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -9,6 +20,13 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="3.1.6" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="3.1.6" />
     <PackageReference Include="System.Data.SqlClient" Version="4.8.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>
