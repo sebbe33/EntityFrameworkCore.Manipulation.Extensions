@@ -3,18 +3,17 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 
 namespace EntityFrameworkCore.Manipulation.Extensions.Internal
 {
     internal static class EntityUtils
     {
-        public static TEntity FindEntityBasedOnKey<TEntity>(IEnumerable<TEntity> entities, IKey key, object[] keyPropertyValues)
+        public static TEntity FindEntityBasedOnKey<TEntity>(IEnumerable<TEntity> entities, IKey key, object[] keyPropertyValues, Func<object, object>[] keyValueConverters = null)
             where TEntity : class
         {
             foreach (var entity in entities)
             {
-                if (EqualBasedOnKey(entity, key, keyPropertyValues))
+                if (EqualBasedOnKey(entity, key, keyPropertyValues, keyValueConverters))
                 {
                     return entity;
                 }
@@ -23,12 +22,20 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
             return default;
         }
 
-        public static bool EqualBasedOnKey<TEntity>(TEntity entity, IKey key, object[] keyPropertyValues)
+        public static bool EqualBasedOnKey<TEntity>(TEntity entity, IKey key, object[] keyPropertyValues, Func<object, object>[] keyValueConverters = null)
             where TEntity : class
         {
             for (var i = 0; i < key.Properties.Count; i++)
             {
-                if (key.Properties[i].PropertyInfo.GetValue(entity)?.Equals(keyPropertyValues[i]) != true)
+                object propertyValue = key.Properties[i].PropertyInfo.GetValue(entity);
+				object keyValue = keyPropertyValues[i];
+
+				if (keyValueConverters != null)
+                {
+					keyValue = keyValueConverters[i](keyValue);
+                }
+
+                if (propertyValue != keyPropertyValues[i] && propertyValue?.Equals(keyValue) != true)
                 {
                     return false;
                 }
@@ -37,72 +44,24 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
             return true;
         }
 
-        public static TEntity EntityFromRow<TEntity>(object[] row, IProperty[] properties, int offset = 0, bool useExplicitConversion = false)
+        public static TEntity EntityFromRow<TEntity>(object[] row, IProperty[] properties, int offset = 0, Func<object, object>[] propertyValueConverters = null)
             where TEntity : class, new()
         {
             var entity = new TEntity();
             for (var i = 0; i < properties.Length; i++)
             {
-                var valueConverter = properties[i].GetValueConverter();
+                var valueConverter = properties[i].GetValueConverter()?.ConvertFromProvider;
                 object rawValue = row[i + offset] is DBNull ? null : row[i + offset];
 
-				if (useExplicitConversion && valueConverter == null)
-				{
-					var targetType = properties[i].PropertyInfo.PropertyType;
-					var nullableUnderlyingType = Nullable.GetUnderlyingType(targetType);
-					if (nullableUnderlyingType != default)
-					{
-						targetType = nullableUnderlyingType;
-					}
+                if (propertyValueConverters != null)
+                {
+                    valueConverter = propertyValueConverters[i];
 
-					if (rawValue == null)
-					{
-						// Nothing to convert
-					}
-					else if (targetType.IsEnum)
-					{
-						rawValue = rawValue is string enumValue
-							? Enum.Parse(targetType, enumValue, true)
-							: Convert.ChangeType(rawValue, targetType.GetEnumUnderlyingType());
+                }
 
-						if (nullableUnderlyingType != null)
-						{
-							rawValue = Enum.ToObject(targetType, rawValue);
-						}
-					}
-					else if (targetType == typeof(bool) && !(rawValue is bool))
-					{
-						valueConverter = new BoolToZeroOneConverter<int?>();
-					}
-					else if (targetType == typeof(DateTime) && !(rawValue is DateTime))
-					{
-						valueConverter = new DateTimeToStringConverter();
-					}
-					else if (targetType == typeof(Guid) && !(rawValue is Guid))
-					{
-						valueConverter = new GuidToStringConverter();
-					}
-					else
-					{
-						try
-						{
-							rawValue = Convert.ChangeType(rawValue, targetType);
-						}
-						catch (Exception e)
-						{
-							throw new Exception($"Failed to convert property '{properties[i].Name}'. See inner exception for details.", e);
-						}
-					}
+                properties[i].PropertyInfo.SetValue(entity, valueConverter != null ? valueConverter(rawValue) : rawValue);
 
-					if (rawValue != null)
-					{
-						properties[i].PropertyInfo.SetValue(entity, valueConverter?.ConvertFromProvider(rawValue) ?? rawValue);
-					}
-				}
-				else
-				{
-					properties[i].PropertyInfo.SetValue(entity, valueConverter?.ConvertFromProvider(rawValue) ?? rawValue);
-				}            }
+            }
 
             return entity;
         }
@@ -121,6 +80,69 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
             return true;
         }
 
-		private static T CastTo<T>(object obj) => (T)obj;
+        public static Func<object, object>[] GetEntityPropertiesValueConverters(IProperty[] properties)
+        {
+            var converters = new Func<object, object>[properties.Length];
+
+            for (var i = 0; i < properties.Length; i++)
+            {
+                ValueConverter valueConverter = properties[i].GetValueConverter();
+
+                if (valueConverter != null)
+                {
+                    converters[i] = valueConverter.ConvertFromProvider;
+                    continue;
+                }
+
+                var targetType = properties[i].PropertyInfo.PropertyType;
+                var nullableUnderlyingType = Nullable.GetUnderlyingType(targetType);
+                if (nullableUnderlyingType != default)
+                {
+                    targetType = nullableUnderlyingType;
+                }
+
+                if (targetType.IsEnum)
+                {
+                    converters[i] = (rawValue) =>
+                    {
+                        var convertedValue = rawValue = rawValue is string enumValue
+                            ? Enum.Parse(targetType, enumValue, true)
+                            : Convert.ChangeType(rawValue, targetType.GetEnumUnderlyingType());
+
+                        if (nullableUnderlyingType != null)
+                        {
+                            convertedValue = Enum.ToObject(targetType, rawValue);
+                        }
+
+                        return convertedValue;
+                    };
+                }
+                else if (targetType == typeof(bool))
+                {
+                    converters[i] = new BoolToZeroOneConverter<int?>().ConvertFromProvider;
+                }
+                else if (targetType == typeof(DateTime))
+                {
+                    converters[i] = new DateTimeToStringConverter().ConvertFromProvider;
+                }
+                else if (targetType == typeof(Guid))
+                {
+                    converters[i] = new GuidToStringConverter().ConvertFromProvider;
+                }
+                else
+                {
+                    converters[i] = (rawValue) => Convert.ChangeType(rawValue, targetType);
+                }
+
+                // It's a nullable type and we have to account for DB nulls
+                if (nullableUnderlyingType != default)
+                {
+                    var valueTypeConverter = converters[i];
+                    converters[i] = rawValue => rawValue == null ? null : valueTypeConverter(rawValue);
+                }
+            }
+
+            return converters;
+        }
     }
 }

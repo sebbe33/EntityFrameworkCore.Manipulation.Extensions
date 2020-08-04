@@ -85,8 +85,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                                 .Append(targetCommand)
                                 .AppendLine(") ")
                              .Append("SELECT (CASE WHEN (")
-								.AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"target.{property.Name} IS NULL")))
-								.Append(") THEN 'INSERT' ELSE 'UPDATE' END) AS _$action, ")
+                                .AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"target.{property.Name} IS NULL")))
+                                .Append(") THEN 'INSERT' ELSE 'UPDATE' END) AS _$action, ")
                                 .AppendColumnNames(properties, false, "source", SourceAliaser).Append(", ")
                                 .AppendColumnNames(properties, false, "target", TargetAliaser)
                                 .Append("FROM source LEFT OUTER JOIN target ON ").AppendJoinCondition(primaryKey);
@@ -115,23 +115,23 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                     stringBuilder.AppendLine(";");
                 }
 
-				// UPSERT
-				stringBuilder
-					.Append("INSERT OR REPLACE INTO ").Append(tableName).AppendColumnNames(properties, true)
-						.Append(" SELECT ").AppendJoin(",", properties.Select(m => SourceAliaser(m.GetColumnName())))
-						.AppendLine(" FROM EntityFrameworkManipulationSync WHERE _$action='INSERT' OR _$action='UPDATE' ");
+                // UPSERT
+                stringBuilder
+                    .Append("INSERT OR REPLACE INTO ").Append(tableName).AppendColumnNames(properties, true)
+                        .Append(" SELECT ").AppendJoin(",", properties.Select(m => SourceAliaser(m.GetColumnName())))
+                        .AppendLine(" FROM EntityFrameworkManipulationSync WHERE _$action='INSERT' OR _$action='UPDATE' ");
 
-				// There's no need to update if all rows are included in the primary key as nothing has changed.
-				if (nonPrimaryKeyProperties.Any())
-				{
-					stringBuilder.Append("    ON CONFLICT").AppendColumnNames(primaryKey.Properties, true).Append(" DO UPDATE SET ")
-							.AppendJoin(",", nonPrimaryKeyProperties.Select(property => FormattableString.Invariant($"{property.Name}=excluded.{property.Name}")));
-				}
-				stringBuilder.AppendLine(";");
-							
+                // There's no need to update if all rows are included in the primary key as nothing has changed.
+                if (nonPrimaryKeyProperties.Any())
+                {
+                    stringBuilder.Append("    ON CONFLICT").AppendColumnNames(primaryKey.Properties, true).Append(" DO UPDATE SET ")
+                            .AppendJoin(",", nonPrimaryKeyProperties.Select(property => FormattableString.Invariant($"{property.Name}=excluded.{property.Name}")));
+                }
+                stringBuilder.AppendLine(";");
+                            
 
-				// Select the output
-				stringBuilder.Append("SELECT _$action, ")
+                // Select the output
+                stringBuilder.Append("SELECT _$action, ")
                         .AppendJoin(", ", primaryKey.Properties.Select(m => SourceAliaser(m.GetColumnName()))).Append(", ")
                         .AppendJoin(", ", properties.Select(m => TargetAliaser(m.GetColumnName())))
                         .AppendLine(" FROM EntityFrameworkManipulationSync;")
@@ -171,6 +171,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             List<(TEntity OldValue, TEntity NewValue)> updatedEntities = new List<(TEntity OldValue, TEntity NewValue)>();
             var deletedColumnOffset = 1 + primaryKey.Properties.Count; // action + PK key properties lengths
 
+            var propertyValueConverters = isSqlite ? EntityUtils.GetEntityPropertiesValueConverters(properties) : null;
+            var keyValueConverters = isSqlite ? EntityUtils.GetEntityPropertiesValueConverters(primaryKey.Properties.ToArray()) : null;
+
             while (await reader.ReadAsync(cancellationToken))
             {
                 var row = new object[1 + primaryKey.Properties.Count + properties.Length];
@@ -181,17 +184,17 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
                 if (string.Equals(action, "INSERT", StringComparison.OrdinalIgnoreCase))
                 {
-                    insertedEntities.Add(EntityUtils.FindEntityBasedOnKey(source, primaryKey, insertKeyPropertyValues));
+                    insertedEntities.Add(EntityUtils.FindEntityBasedOnKey(source, primaryKey, insertKeyPropertyValues, keyValueConverters));
                 }
                 else if (string.Equals(action, "DELETE", StringComparison.OrdinalIgnoreCase))
                 {
-                    deletedEntities.Add(EntityUtils.EntityFromRow<TEntity>(row, properties, deletedColumnOffset, useExplicitConversion: isSqlite));
+                    deletedEntities.Add(EntityUtils.EntityFromRow<TEntity>(row, properties, deletedColumnOffset, propertyValueConverters));
                 }
                 else
                 {
                     // Update
-                    var newValue = EntityUtils.FindEntityBasedOnKey(source, primaryKey, insertKeyPropertyValues);
-                    var oldValue = EntityUtils.EntityFromRow<TEntity>(row, properties, deletedColumnOffset, useExplicitConversion: isSqlite);
+                    var newValue = EntityUtils.FindEntityBasedOnKey(source, primaryKey, insertKeyPropertyValues, keyValueConverters);
+                    var oldValue = EntityUtils.EntityFromRow<TEntity>(row, properties, deletedColumnOffset, propertyValueConverters);
                     updatedEntities.Add((oldValue, newValue));
                 }
             }
