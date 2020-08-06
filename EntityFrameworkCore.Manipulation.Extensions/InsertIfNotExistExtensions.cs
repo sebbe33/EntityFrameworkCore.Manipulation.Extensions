@@ -1,4 +1,5 @@
-﻿using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
+﻿using EntityFrameworkCore.Manipulation.Extensions.Internal;
+using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using System;
@@ -65,10 +66,27 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             }
             else
             {
+                string userDefinedTableTypeName = null;
+                if (ConfigUtils.ShouldUseTableValuedParameters(properties, entities))
+                {
+                    userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, cancellationToken);
+                }
+
                 stringBuilder.AppendLine("INSERT INTO ").Append(tableName).AppendColumnNames(properties, wrapInParanthesis: true)
-                             .AppendLine("OUTPUT INSERTED.* ")
-                             .AppendSelectFromInlineTable(properties, entities, parameters, "source")
-                             .Append("WHERE NOT EXISTS (");
+                             .AppendLine("OUTPUT INSERTED.* ");
+
+                if (ConfigUtils.ShouldUseTableValuedParameters(properties, entities))
+                {
+                    stringBuilder.Append("SELECT * FROM ")
+                        .AppendTableValuedParameter(userDefinedTableTypeName, properties, entities, parameters)
+                        .AppendLine(" AS source");
+                }
+                else
+                {
+                    stringBuilder.AppendSelectFromInlineTable(properties, entities, parameters, "source");
+                }
+
+                stringBuilder.Append("WHERE NOT EXISTS (");
 
                 // sub-query to filter out entities which already exist
                 stringBuilder.Append("SELECT 1 FROM ").Append(tableName).Append(" AS target WHERE ")

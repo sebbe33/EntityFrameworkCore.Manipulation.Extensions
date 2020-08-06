@@ -1,7 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 
@@ -30,6 +33,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 }))
                 .Append(wrapInParanthesis ? ") " : " ");
         }
+
         public static StringBuilder AppendValues<TEntity>(this StringBuilder stringBuilder, IProperty[] properties, IEnumerable<TEntity> entities, IList<object> parameters, bool wrapInParanthesis = false)
             where TEntity : class
         {
@@ -93,5 +97,56 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             stringBuilder.Length -= andOperator.Length;
             return stringBuilder.Append(" ");
         }
+
+        public static StringBuilder AppendTableValuedParameter<TEntity>(
+            this StringBuilder stringBuilder, 
+            string userDefinedTableTypeName,
+            IProperty[] properties, 
+            IEnumerable<TEntity> entities, 
+            IList<object> parameters)
+        {
+            var dataTable = new DataTable();
+
+            // Add the columns
+            foreach (IProperty property in properties)
+            {
+                var columnType = property.PropertyInfo.PropertyType;
+                columnType = Nullable.GetUnderlyingType(columnType) ?? columnType;
+
+                // For some reason, a datatable with an enum types throws unsupported column exceptions, so we'll convert it to an int.
+                if (columnType.IsEnum)
+                {
+                    columnType = typeof(int);
+                }
+
+                dataTable.Columns.Add(property.GetColumnName(), columnType);
+            }
+
+            // Add the entities as rows
+            foreach (TEntity entity in entities)
+            {
+                var row = new object[properties.Length];
+
+                for (int i = 0; i < properties.Length; i++)
+                {
+                    row[i] = properties[i].PropertyInfo.GetValue(entity);
+                }
+
+                dataTable.Rows.Add(row);
+            }
+
+            var parameter = new SqlParameter
+            {
+                ParameterName = $"@{userDefinedTableTypeName}",
+                SqlDbType = SqlDbType.Structured,
+                TypeName = userDefinedTableTypeName,
+                Value = dataTable,
+            };
+            parameters.Add(parameter);
+
+            return stringBuilder.Append(parameter.ParameterName);
+        }
+
+
     }
 }

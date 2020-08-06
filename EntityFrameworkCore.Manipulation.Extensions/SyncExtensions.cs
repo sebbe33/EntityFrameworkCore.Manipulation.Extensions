@@ -139,14 +139,31 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             }
             else
             {
+                string userDefinedTableTypeName = null;
+                if (ConfigUtils.ShouldUseTableValuedParameters(properties, source))
+                {
+                    userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, cancellationToken);
+                }
+
                 stringBuilder
-                    .AppendLine("WITH TargetData AS (").Append(targetCommand).Append(") ")
+                    .AppendLine("WITH TargetData AS (").Append(targetCommand).AppendLine(")")
                     .AppendLine("MERGE INTO TargetData AS target ")
-                    .Append("USING (").AppendSelectFromInlineTable(properties, source, parameters, "x").Append(") AS source ON ").AppendJoinCondition(primaryKey).AppendLine(" ")
+                    .Append("USING ");
+
+                if (ConfigUtils.ShouldUseTableValuedParameters(properties, source))
+                {
+                    stringBuilder.AppendTableValuedParameter(userDefinedTableTypeName, properties, source, parameters);
+                }
+                else
+                {
+                    stringBuilder.Append("(").AppendSelectFromInlineTable(properties, source, parameters, "x").Append(")");
+                }
+
+                stringBuilder.Append(" AS source ON ").AppendJoinCondition(primaryKey).AppendLine(" ")
                     .Append("WHEN NOT MATCHED BY TARGET THEN INSERT ")
-                        .AppendColumnNames(properties, wrapInParanthesis: true).Append("VALUES ")
-                        .AppendColumnNames(properties, wrapInParanthesis: true, identifierPrefix: "source")
-                        .AppendLine();
+                    .AppendColumnNames(properties, wrapInParanthesis: true).Append("VALUES ")
+                    .AppendColumnNames(properties, wrapInParanthesis: true, identifierPrefix: "source")
+                    .AppendLine();
 
                 if (!ignoreUpdates)
                 {

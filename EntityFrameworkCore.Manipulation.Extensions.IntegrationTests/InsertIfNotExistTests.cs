@@ -5,6 +5,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -87,11 +88,13 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 
         private TestDbContext GetDbContext()
         {
+            // var sqlConnection = new SqlConnection("Data Source=localhost\\SQLEXPRESS;Initial Catalog=Test;Integrated Security=True;");
             var sqlConnection = new SqliteConnection("Data Source=:memory:;");
             sqlConnection.Open();
 
             var optionsBuilder = new DbContextOptionsBuilder();
 
+            // optionsBuilder.UseSqlServer(sqlConnection).EnableSensitiveDataLogging(true);
             optionsBuilder.UseSqlite(sqlConnection).EnableSensitiveDataLogging(true);
 
             return new TestDbContext(optionsBuilder.Options);
