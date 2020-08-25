@@ -5,8 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Security.Cryptography;
+using System.Data.SqlClient;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,7 +14,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 {
     public static class DatabaseFacadeExtensions
     {
-        private static readonly ConcurrentDictionary<string, string> userDefinedTableTypeCache = new ConcurrentDictionary<string, string>();
+        private static readonly ConcurrentDictionary<(string DatabaseName, string EntityTableName), string> userDefinedTableTypeCache
+            = new ConcurrentDictionary<(string, string), string>();
 
         public static Task<RelationalDataReader> ExecuteSqlQueryAsync(this DatabaseFacade databaseFacade, string sql, object[] parameters, CancellationToken cancellationToken)
         {
@@ -39,15 +39,20 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
         {
             var stringBuilder = new StringBuilder();
             var entityTableName = entityType.GetTableName();
+
+            var connectionInfo = new SqlConnectionStringBuilder(databaseFacade.GetDbConnection().ConnectionString
+                ?? throw new InvalidOperationException("No connection string was specified for the connection to the database."));
+            var fullyQualifiedDatabaseName = connectionInfo.DataSource + connectionInfo.InitialCatalog;
+
             string userDefinedTableTypeName;
 
-            // Check if the type has already been successfully create. If so, we don't need to generate the command to create type type
-            if (userDefinedTableTypeCache.TryGetValue(entityTableName, out userDefinedTableTypeName))
+            // Check if the type has already been successfully created in the current database. If so, we don't need to generate the command to create the type.
+            if (userDefinedTableTypeCache.TryGetValue((fullyQualifiedDatabaseName, entityTableName), out userDefinedTableTypeName))
             {
                 return userDefinedTableTypeName;
             }
 
-
+            // If the type hasn't been created (at least not by the running instance), then we send an idempotent command to create it.
             var schemaBuilder = new StringBuilder();
 
             foreach (IProperty property in entityType.GetProperties())
@@ -60,7 +65,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             var schema = schemaBuilder.ToString();
             var schemaHash = schema.GetDeterministicStringHash();
             userDefinedTableTypeName = $"{entityTableName}_{schemaHash}";
-            
 
             stringBuilder
                 .Append("IF TYPE_ID('").Append(userDefinedTableTypeName).AppendLine("') IS NULL")
@@ -69,7 +73,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
             await databaseFacade.ExecuteSqlRawAsync(stringBuilder.ToString(), cancellationToken);
 
-            userDefinedTableTypeCache.TryAdd(entityTableName, userDefinedTableTypeName);
+            // Cache that the type now exists
+            userDefinedTableTypeCache.TryAdd((fullyQualifiedDatabaseName, entityTableName), userDefinedTableTypeName);
             return userDefinedTableTypeName;
         }
     }
