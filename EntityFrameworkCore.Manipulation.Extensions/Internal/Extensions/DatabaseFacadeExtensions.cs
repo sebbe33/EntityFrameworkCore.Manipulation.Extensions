@@ -66,15 +66,40 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             var schemaHash = schema.GetDeterministicStringHash();
             userDefinedTableTypeName = $"{entityTableName}_{schemaHash}";
 
+			var typeIdClause = $"TYPE_ID('{userDefinedTableTypeName}')";
+
             stringBuilder
-                .Append("IF TYPE_ID('").Append(userDefinedTableTypeName).AppendLine("') IS NULL")
+                .AppendLine("BEGIN TRANSACTION;")
+                .Append("IF ").Append(typeIdClause).AppendLine(" IS NULL")
                 .Append("CREATE TYPE ").Append(userDefinedTableTypeName).AppendLine(" AS TABLE")
-                .Append("( ").Append(schema).Append(" )");
+                .Append("( ").Append(schema).AppendLine(" );")
+                .Append("COMMIT;");
+			try
+			{
+				await databaseFacade.ExecuteSqlRawAsync(stringBuilder.ToString(), cancellationToken);
+			}
+			catch (SqlException e) when (e.Message?.Contains("already exists") == true)
+			{
+				// Check if the type already exists
+				var doesExist = false;
+				var reader = await databaseFacade.ExecuteSqlQueryAsync($"SELECT TYPE_NAME({typeIdClause}) AS UserDefinedTypeId", new object[0], cancellationToken);
+				while (await reader.ReadAsync(cancellationToken))
+				{
+					if (!string.IsNullOrWhiteSpace(reader.DbDataReader.GetString(0)))
+					{
+						doesExist = true;
+					}
+				}
 
-            await databaseFacade.ExecuteSqlRawAsync(stringBuilder.ToString(), cancellationToken);
+				if (!doesExist)
+				{
+					throw;
+				}
+			}
 
-            // Cache that the type now exists
-            userDefinedTableTypeCache.TryAdd((fullyQualifiedDatabaseName, entityTableName), userDefinedTableTypeName);
+
+			// Cache that the type now exists
+			userDefinedTableTypeCache.TryAdd((fullyQualifiedDatabaseName, entityTableName), userDefinedTableTypeName);
             return userDefinedTableTypeName;
         }
     }
