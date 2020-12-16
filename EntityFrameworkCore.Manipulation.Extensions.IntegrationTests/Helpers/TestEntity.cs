@@ -24,6 +24,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 
 		public TestEnum EnumValue { get; set; }
 
-		public TestEnum? NullableEnumValue { get; set; }
+		// public TestEnum? NullableEnumValue { get; set; }
 	}
 }

@@ -82,10 +82,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 			{
 				// Check if the type already exists
 				var doesExist = false;
-				var reader = await databaseFacade.ExecuteSqlQueryAsync($"SELECT TYPE_NAME({typeIdClause}) AS UserDefinedTypeId", new object[0], cancellationToken);
+				using var reader = await databaseFacade.ExecuteSqlQueryAsync($"SELECT TYPE_NAME({typeIdClause}) AS UserDefinedTypeId", new object[0], cancellationToken);
 				while (await reader.ReadAsync(cancellationToken))
 				{
-					if (!string.IsNullOrWhiteSpace(reader.DbDataReader.GetString(0)))
+					if (!reader.DbDataReader.IsDBNull(0))
 					{
 						doesExist = true;
 					}

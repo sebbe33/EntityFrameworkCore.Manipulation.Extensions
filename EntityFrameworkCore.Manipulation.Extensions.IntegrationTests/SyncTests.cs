@@ -205,7 +205,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         {
             var existingEntities = new[]
             {
-                new TestEntity { Id = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165, NullableEnumValue = TestEnum.Value1, NullableGuidValue = Guid.NewGuid() },
+                new TestEntity { Id = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165, NullableGuidValue = Guid.NewGuid() },
                 new TestEntity { Id = "TO BE DELETED2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
             using var context = await this.GetDbContext(existingEntities);
@@ -612,19 +612,23 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         private async Task<TestDbContext> GetDbContext(IEnumerable<TestEntity> seedData = null)
         {
             // var sqlConnection = new SqliteConnection("Data Source=C:\\Users\\Sebastian\\Documents\\projects\\test2.db;");
-            var sqlConnection = new SqliteConnection("Data Source=:memory:;");
-            // var sqlConnection = new SqlConnection("Data Source=localhost\\SQLEXPRESS;Initial Catalog=Test;Integrated Security=True;");
+            // var sqlConnection = new SqliteConnection("Data Source=:memory:;");
+            var sqlConnection = new SqlConnection("Data Source=localhost\\SQLEXPRESS;Initial Catalog=Test;Integrated Security=True;");
             await sqlConnection.OpenAsync();
 
             var optionsBuilder = new DbContextOptionsBuilder();
 
-            // optionsBuilder.UseSqlServer(sqlConnection).EnableSensitiveDataLogging(true);
-            optionsBuilder.UseSqlite(sqlConnection).EnableSensitiveDataLogging(true);
+            optionsBuilder.UseSqlServer(sqlConnection).EnableSensitiveDataLogging(true);
+			// optionsBuilder.UseSqlite(sqlConnection).EnableSensitiveDataLogging(true);
 
-            if (seedData != null)
+			var command = sqlConnection.CreateCommand();
+			command.CommandText = "DELETE FROM TestEntities";
+			command.ExecuteNonQuery();
+
+			if (seedData != null)
             {
                 using var seedContext = new TestDbContext(optionsBuilder.Options);
-                seedContext.AddRange(seedData);
+				seedContext.AddRange(seedData);
                 await seedContext.SaveChangesAsync();
             }
 
