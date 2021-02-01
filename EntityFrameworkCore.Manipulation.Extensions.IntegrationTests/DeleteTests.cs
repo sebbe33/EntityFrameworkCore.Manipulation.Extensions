@@ -15,10 +15,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
     [TestClass]
     public class DeleteTests
     {
-        [TestMethod]
-        public async Task DeleteAsync_ShouldReturnEmptyCollection_WhenThereAreNoEntities()
+		[DataTestMethod]
+		[DataRow(DbProvider.Sqlite)]
+		[DataRow(DbProvider.SqlServer)]
+		public async Task DeleteAsync_ShouldReturnEmptyCollection_WhenThereAreNoEntities(DbProvider provider)
         {
-            using TestDbContext context = await this.GetDbContext(seedData: null); // Note: no seed data => no entities exist
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: null); // Note: no seed data => no entities exist
 
 			// Invoke the method and check that the result is empty
 			IReadOnlyCollection<TestEntity> result = await context.DeleteAsync(context.TestEntities);
@@ -26,8 +28,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             result.Should().BeEmpty();
         }
 
-		[TestMethod]
-		public async Task DeleteAsync_ShouldReturnEmptyCollection_WhenThereAreNoMatchingEntities()
+		[DataTestMethod]
+		[DataRow(DbProvider.Sqlite)]
+		[DataRow(DbProvider.SqlServer)]
+		public async Task DeleteAsync_ShouldReturnEmptyCollection_WhenThereAreNoMatchingEntities(DbProvider provider)
 		{
 			var existingEntities = new[]
 			{
@@ -35,7 +39,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 				new TestEntity { Id = "Should not be touched 2", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
 			};
 
-			using TestDbContext context = await this.GetDbContext(existingEntities);
+			using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
 			// Invoke the method and check that the result is empty
 			IReadOnlyCollection<TestEntity> result = await context.DeleteAsync(context.TestEntities.Where(entity => entity.Id == "Does not exist"));
@@ -46,8 +50,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 			context.TestEntities.ToList().Should().BeEquivalentTo(existingEntities);
 		}
 
-		[TestMethod]
-		public async Task DeleteAsync_ShouldReturnEntireCollection_WhenDeleteTargetIsAllEntities()
+		[DataTestMethod]
+		[DataRow(DbProvider.Sqlite)]
+		[DataRow(DbProvider.SqlServer)]
+		public async Task DeleteAsync_ShouldReturnEntireCollection_WhenDeleteTargetIsAllEntities(DbProvider provider)
 		{
 			var existingEntities = new[]
 			{
@@ -56,7 +62,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 				new TestEntity { Id = "Should be delete 3", IntTestValue = 891564, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 894156156 },
 			};
 
-			using TestDbContext context = await this.GetDbContext(existingEntities);
+			using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
 			// Invoke the method and check that the result is all entities
 			IReadOnlyCollection<TestEntity> result = await context.DeleteAsync(context.TestEntities);
@@ -67,8 +73,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 			context.TestEntities.Should().BeEmpty();
 		}
 
-		[TestMethod]
-		public async Task DeleteAsync_ShouldReturnMatchingDeleteCollection_WhenDeleteTargetIsASubsetOfCollection()
+		[DataTestMethod]
+		[DataRow(DbProvider.Sqlite)]
+		[DataRow(DbProvider.SqlServer)]
+		public async Task DeleteAsync_ShouldReturnMatchingDeleteCollection_WhenDeleteTargetIsASubsetOfCollection(DbProvider provider)
 		{
 			var existingEntities = new[]
 			{
@@ -77,7 +85,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 				new TestEntity { Id = "Should be delete 3", IntTestValue = -516, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 894156156 },
 			};
 
-			using TestDbContext context = await this.GetDbContext(existingEntities);
+			using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
 			// Invoke the method and check that the result is the subset of entities with a negative IntTestValue 
 			IReadOnlyCollection<TestEntity> result = await context.DeleteAsync(context.TestEntities.Where(entity => entity.IntTestValue < 0));
@@ -87,32 +95,5 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 			// Check that the DB is empty
 			context.TestEntities.Should().BeEquivalentTo(existingEntities.Where(entity => entity.IntTestValue >= 0));
 		}
-
-		private async Task<TestDbContext> GetDbContext(IEnumerable<TestEntity> seedData = null)
-        {
-            // var sqlConnection = new SqliteConnection("Data Source=F:\\temp\\temp.db;");
-            // var sqlConnection = new SqliteConnection("Data Source=:memory:;");
-            var sqlConnection = new SqlConnection("Data Source=localhost\\SQLEXPRESS;Initial Catalog=Test;Integrated Security=True;");
-            await sqlConnection.OpenAsync();
-
-            var optionsBuilder = new DbContextOptionsBuilder();
-
-            optionsBuilder.UseSqlServer(sqlConnection).EnableSensitiveDataLogging(true);
-			// optionsBuilder.UseSqlite(sqlConnection).EnableSensitiveDataLogging(true);
-
-			var command = sqlConnection.CreateCommand();
-			command.CommandText = "DELETE FROM TestEntities";
-			command.ExecuteNonQuery();
-
-			if (seedData != null)
-            {
-                using var seedContext = new TestDbContext(optionsBuilder.Options);
-				seedContext.Database.EnsureCreated();
-				seedContext.AddRange(seedData);
-                await seedContext.SaveChangesAsync();
-            }
-
-            return new TestDbContext(optionsBuilder.Options);
-        }
     }
 }

@@ -1,13 +1,23 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
 
 namespace EntityFrameworkCore.Manipulation.Extensions.Internal
 {
     internal static class EntityUtils
     {
+		public static IEnumerable<IProperty> GetPropertiesFromExpressions<TEntity>(this IEnumerable<Expression<Func<TEntity, object>>> propertyExpressions, IEnumerable<IProperty> availableProperties)
+		{
+			var propertyInfos = propertyExpressions.Select(x => x.GetPropertyInfoFromExpression()).ToList();
+			return propertyInfos.Select(propertyInfo => availableProperties.FirstOrDefault(property => property.PropertyInfo.Equals(propertyInfo))
+				?? throw new ArgumentException($"The property {propertyInfo.Name} could not be found in the DB schema"));
+		}
+
         public static TEntity FindEntityBasedOnKey<TEntity>(IEnumerable<TEntity> entities, IKey key, object[] keyPropertyValues, Func<object, object>[] keyValueConverters = null)
             where TEntity : class
         {

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
@@ -13,7 +14,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 {
     internal static class IQueryableExtensions
     {
-        public static (string CommantText, IReadOnlyCollection<SqlParameter> Parameters) ToSqlCommand<TEntity>(this IQueryable<TEntity> query)
+        public static (string CommantText, IReadOnlyCollection<SqlParameter> Parameters) ToSqlCommand<TEntity>(this IQueryable<TEntity> query, bool filterCollapsedP0Param = false)
             where TEntity : class
         {
             IEnumerator<TEntity> enumerator = query.Provider.Execute<IEnumerable<TEntity>>(query.Expression).GetEnumerator();
@@ -39,7 +40,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 command = sqlGenerator.GetCommand(selectExpression);
             }
 
-            var sqlParams = command.Parameters.Select(param => new SqlParameter($"@{param.InvariantName}", parameterValues[param.InvariantName])).ToArray();
+            var sqlParams = command.Parameters
+				.Where(param => !filterCollapsedP0Param || param.InvariantName == "@__p_0")
+				.Select(param => new SqlParameter($"@{param.InvariantName}", parameterValues[param.InvariantName]))
+				.ToArray();
 
             return (command.CommandText, sqlParams);
         }

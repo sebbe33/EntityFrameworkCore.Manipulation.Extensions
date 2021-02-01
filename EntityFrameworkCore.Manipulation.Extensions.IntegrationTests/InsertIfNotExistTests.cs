@@ -1,4 +1,4 @@
-using EntityFrameworkCore.Manipulation.Extensions;
+﻿using EntityFrameworkCore.Manipulation.Extensions;
 using EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -14,10 +14,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
     [TestClass]
     public class InsertIfNotExistTests
     {
-        [TestMethod]
-        public async Task InsertIfNotExistAsync_ShouldNotInsertEntities_WhenNoEntitiesGiven()
+        [DataTestMethod]
+		[DataRow(DbProvider.Sqlite)]
+		[DataRow(DbProvider.SqlServer)]
+		public async Task InsertIfNotExistAsync_ShouldNotInsertEntities_WhenNoEntitiesGiven(DbProvider provider)
         {
-            var context = this.GetDbContext();
+			using var context = await ContextFactory.GetDbContextAsync(provider);
 
             // Validate that the DB doesn't have any entities
             (await context.TestEntities.CountAsync()).Should().Be(0);
@@ -30,8 +32,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             (await context.TestEntities.CountAsync()).Should().Be(0);
         }
 
-        [TestMethod]
-        public async Task InsertIfNotExistAsync_ShouldInsertAndReturnAllEntitiest_WhenThereAreNoExistingEntities()
+        [DataTestMethod]
+		[DataRow(DbProvider.Sqlite)]
+		[DataRow(DbProvider.SqlServer)]
+		public async Task InsertIfNotExistAsync_ShouldInsertAndReturnAllEntitiest_WhenThereAreNoExistingEntities(DbProvider provider)
         {
             var expectedEntitiesToBeInserted = new[]
             {
@@ -39,7 +43,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
                 new TestEntity { Id = "3", IntTestValue = 333, BoolTestValue = false, DateTimeTestValue = new DateTime(15645325746541), LongTestValue = 7451524264 },
             };
 
-            var context = this.GetDbContext();
+			using var context = await ContextFactory.GetDbContextAsync(provider);
 
             // Validate that the DB doesn't have any entities
             (await context.TestEntities.CountAsync()).Should().Be(0);
@@ -53,8 +57,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             actualEntities.Should().BeEquivalentTo(expectedEntitiesToBeInserted);
         }
 
-        [TestMethod]
-        public async Task InsertIfNotExistAsync_ShouldInsertAndReturnEntitiesWhichNotExist_WhenThereAreExistingEntities()
+        [DataTestMethod]
+		[DataRow(DbProvider.Sqlite)]
+		[DataRow(DbProvider.SqlServer)]
+		public async Task InsertIfNotExistAsync_ShouldInsertAndReturnEntitiesWhichNotExist_WhenThereAreExistingEntities(DbProvider provider)
         {
             var existingEntities = new[]
             {
@@ -70,7 +76,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             };
 
             // First, add the entities which should exist before we perform our test.
-            var context = this.GetDbContext();
+            using var context = await ContextFactory.GetDbContextAsync(provider);
             context.TestEntities.AddRange(existingEntities);
             await context.SaveChangesAsync();
 
@@ -84,20 +90,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             // Then check that the actual DB contains the expected entities
             var actualEntities = await context.TestEntities.ToArrayAsync();
             actualEntities.Should().BeEquivalentTo(existingEntities.Concat(expectedEntitiesToBeInserted));
-        }
-
-        private TestDbContext GetDbContext()
-        {
-            // var sqlConnection = new SqlConnection("Data Source=localhost\\SQLEXPRESS;Initial Catalog=Test;Integrated Security=True;");
-            var sqlConnection = new SqliteConnection("Data Source=:memory:;");
-            sqlConnection.Open();
-
-            var optionsBuilder = new DbContextOptionsBuilder();
-
-            // optionsBuilder.UseSqlServer(sqlConnection).EnableSensitiveDataLogging(true);
-            optionsBuilder.UseSqlite(sqlConnection).EnableSensitiveDataLogging(true);
-
-            return new TestDbContext(optionsBuilder.Options);
         }
     }
 }

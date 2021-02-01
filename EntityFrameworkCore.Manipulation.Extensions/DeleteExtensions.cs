@@ -30,7 +30,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 				deleteTarget ?? throw new ArgumentNullException(nameof(deleteTarget)),
 				cancellationToken);
 
-		private static async Task<IReadOnlyCollection<TEntity>> DeleteInternalAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> deleteTarget, CancellationToken cancellationToken = default)
+		private static async Task<IReadOnlyCollection<TEntity>> DeleteInternalAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> deleteTarget, CancellationToken cancellationToken)
 			where TEntity : class
 		{
 			(string targetCommand, IReadOnlyCollection<SqlParameter> targetCommandParameters) = deleteTarget.ToSqlCommand();

@@ -52,7 +52,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             IReadOnlyCollection<TEntity> source, 
             bool ignoreUpdates,
             bool ignoreDeletions,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
             where TEntity : class, new()
         {
             var stringBuilder = new StringBuilder();
