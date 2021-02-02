@@ -18,7 +18,13 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
 				?? throw new ArgumentException($"The property {propertyInfo.Name} could not be found in the DB schema"));
 		}
 
-        public static TEntity FindEntityBasedOnKey<TEntity>(IEnumerable<TEntity> entities, IKey key, object[] keyPropertyValues, Func<object, object>[] keyValueConverters = null)
+		public static IEnumerable<IProperty> GetPropertiesFromPropertyNames(this IEnumerable<string> propertyNames, IEnumerable<IProperty> availableProperties)
+		{
+			return propertyNames.Select(propertyName => availableProperties.FirstOrDefault(property => string.Equals(propertyName, property.PropertyInfo.Name, StringComparison.Ordinal))
+				?? throw new ArgumentException($"The property {propertyName} could not be found in the DB schema"));
+		}
+
+		public static TEntity FindEntityBasedOnKey<TEntity>(IEnumerable<TEntity> entities, IKey key, object[] keyPropertyValues, Func<object, object>[] keyValueConverters = null)
             where TEntity : class
         {
             foreach (var entity in entities)
