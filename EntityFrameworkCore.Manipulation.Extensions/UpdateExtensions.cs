@@ -122,7 +122,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 				}
 
 				string incomingInlineTableCommand = userDefinedTableTypeName != null ?
-					new StringBuilder().AppendTableValuedParameter(userDefinedTableTypeName, properties, source, parameters).ToString()
+					new StringBuilder().Append("SELECT * FROM ").AppendTableValuedParameter(userDefinedTableTypeName, properties, source, parameters).ToString()
 					:
 					new StringBuilder().AppendSelectFromInlineTable(properties, source, parameters, "x").ToString();
 
