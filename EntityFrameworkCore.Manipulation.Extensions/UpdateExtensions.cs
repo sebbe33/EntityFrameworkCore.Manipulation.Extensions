@@ -4,13 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
-using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -30,7 +25,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 	{
 		private static readonly Regex joinAliasRegex = new Regex("(?<=AS).+(?=ON)");
 
-		public static Task<IReadOnlyCollection<TEntity>> UpdateAsync<TEntity>(
+		public static Task<IQueryable<TEntity>> UpdateAndSelectAsync<TEntity>(
 			this DbContext dbContext,
 			IReadOnlyCollection<TEntity> source,
 			IEnumerable<Expression<Func<TEntity, object>>> includedProperties = null,
@@ -51,13 +46,41 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 			if (source.Count == 0)
 			{
 				// Nothing to do.
-				return Task.FromResult<IReadOnlyCollection<TEntity>>(Array.Empty<TEntity>());
+				return Task.FromResult(Array.Empty<TEntity>().AsQueryable());
 			}
 
 			return UpdateInternalAsync(dbContext, source, includedProperties, condition, cancellationToken);
 		}
 
-		private static async Task<IReadOnlyCollection<TEntity>> UpdateInternalAsync<TEntity>(
+		public async static Task<IReadOnlyCollection<TEntity>> UpdateAsync<TEntity>(
+			this DbContext dbContext,
+			IReadOnlyCollection<TEntity> source,
+			IEnumerable<Expression<Func<TEntity, object>>> includedProperties = null,
+			Expression<Func<UpdateEntry<TEntity>, bool>> condition = null,
+			CancellationToken cancellationToken = default)
+			where TEntity : class, new()
+		{
+			if (dbContext == null)
+			{
+				throw new ArgumentNullException(nameof(dbContext));
+			}
+
+			if (source == null)
+			{
+				throw new ArgumentNullException(nameof(source));
+			}
+
+			if (source.Count == 0)
+			{
+				// Nothing to do.
+				return Array.Empty<TEntity>();
+			}
+
+			return await (await UpdateInternalAsync(dbContext, source, includedProperties, condition, cancellationToken))
+				.ToListAsync(cancellationToken);
+		}
+
+		private static async Task<IQueryable<TEntity>> UpdateInternalAsync<TEntity>(
 			this DbContext dbContext,
 			IReadOnlyCollection<TEntity> source,
 			IEnumerable<Expression<Func<TEntity, object>>> includedPropertyExpressions,
@@ -147,12 +170,11 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 					.Append(fromJoinCommand);
 			}
 
-			return await dbContext.Set<TEntity>()
+			return dbContext.Set<TEntity>()
 				.FromSqlRaw(
 					stringBuilder.ToString(),
 					parameters.ToArray())
-				.AsNoTracking()
-				.ToListAsync(cancellationToken);
+				.AsNoTracking();
 		}
 
 		private static IQueryable<TEntity> CreateIncomingQueryable<TEntity>(

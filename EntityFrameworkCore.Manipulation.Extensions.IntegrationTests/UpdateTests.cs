@@ -1,5 +1,6 @@
 ﻿using EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Linq;
@@ -217,6 +218,48 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 			};
 
 			result.Should().BeEquivalentTo(new[] { expectedUpdatedEntity });
+
+			// Validate that the DB is updated
+			context.TestEntitiesWithCompositeKey.Should().BeEquivalentTo(new[] { existingEntities[0], existingEntities[1], expectedUpdatedEntity });
+		}
+
+		[DataTestMethod]
+		[DataRow(DbProvider.Sqlite)]
+		[DataRow(DbProvider.SqlServer)]
+		public async Task UpdateAndSelectAsync_ShouldReturnQueryableWithOnlyIncludedPropertiesUpdated_WhenEntitiesMatchAndIncludedPropertiesArePassed(DbProvider provider)
+		{
+			var existingEntities = new[]
+			{
+				new TestEntityCompositeKey { IdPartA = "Should not be updated 1", IdPartB = "B", IntTestValue = 561645, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 54123 },
+				new TestEntityCompositeKey { IdPartA = "Should not be updated 2", IdPartB = "B", IntTestValue = 56123, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 1231 },
+				new TestEntityCompositeKey { IdPartA = "Should be updated 3", IdPartB = "B", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
+			};
+			var expectedEntities = new[]
+			{
+				new TestEntityCompositeKey { IdPartA = "Should not be updated 1", IdPartB = "B", IntTestValue = -1, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow.AddDays(1), LongTestValue = 781 },
+				new TestEntityCompositeKey { IdPartA = "Should be updated 3", IdPartB = "B", IntTestValue = 561235164, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow.AddDays(1), LongTestValue = 165465132165 },
+			};
+			using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities);
+
+			// Invoke the method and check that the result the updated expected entities
+			var queryable = await context.UpdateAndSelectAsync(
+				expectedEntities,
+				condition: x => x.Incoming.IntTestValue > x.Current.IntTestValue, // Only update if IntTestValue is greater than the incoming value, which rules out "Should not be updated 1"
+				includedProperties: new Expression<Func<TestEntityCompositeKey, object>>[] { x => x.LongTestValue, x => x.DateTimeTestValue });
+
+			var result = await queryable.Select(x => new { x.IdPartA, x.IdPartB, x.DateTimeTestValue, x.LongTestValue }).ToListAsync();
+
+			var expectedUpdatedEntity = new TestEntityCompositeKey
+			{
+				IdPartA = expectedEntities[1].IdPartA,
+				IdPartB = expectedEntities[1].IdPartB,
+				IntTestValue = existingEntities[2].IntTestValue, // We did not include this field in the update => it should have its original value
+				BoolTestValue = existingEntities[2].BoolTestValue, // We did not include this field in the update => it should have its original value
+				DateTimeTestValue = expectedEntities[1].DateTimeTestValue,
+				LongTestValue = expectedEntities[1].LongTestValue,
+			};
+
+			result.Should().BeEquivalentTo(new[] { new { expectedUpdatedEntity.IdPartA, expectedUpdatedEntity.IdPartB, expectedUpdatedEntity.DateTimeTestValue, expectedUpdatedEntity.LongTestValue } });
 
 			// Validate that the DB is updated
 			context.TestEntitiesWithCompositeKey.Should().BeEquivalentTo(new[] { existingEntities[0], existingEntities[1], expectedUpdatedEntity });
