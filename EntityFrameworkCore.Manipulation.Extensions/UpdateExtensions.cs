@@ -19,7 +19,7 @@ using System.Threading.Tasks;
 namespace EntityFrameworkCore.Manipulation.Extensions
 {
 	public class UpdateEntry<TEntity>
-		where TEntity : class, new()
+		where TEntity : class
 	{
 		public TEntity Current { get; set; }
 
@@ -45,7 +45,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 			this DbContext dbContext,
 			IReadOnlyCollection<TEntity> source,
 			CancellationToken cancellationToken = default)
-			where TEntity : class, new()
+			where TEntity : class
 		{
 			ValidateInputParams(dbContext, source);
 
@@ -75,7 +75,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 			IReadOnlyCollection<TEntity> source,
 			Expression<Func<UpdateEntry<TEntity>, bool>> condition,
 			CancellationToken cancellationToken = default)
-			where TEntity : class, new()
+			where TEntity : class
 		{
 			ValidateInputParams(dbContext, source);
 
@@ -107,7 +107,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 			Expression<Func<UpdateEntry<TEntity>, bool>> condition,
 			IEnumerable<Expression<Func<TEntity, object>>> includedProperties,
 			CancellationToken cancellationToken = default)
-			where TEntity : class, new()
+			where TEntity : class
 		{
 			ValidateInputParams(dbContext, source);
 
@@ -141,7 +141,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 			Expression<Func<UpdateEntry<TEntity>, bool>> condition,
 			IEnumerable<string> includedProperties,
 			CancellationToken cancellationToken = default)
-			where TEntity : class, new()
+			where TEntity : class
 		{
 			ValidateInputParams(dbContext, source);
 
@@ -158,7 +158,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 			Expression<Func<UpdateEntry<TEntity>, bool>> condition,
 			IEnumerable<IProperty> includedPropertyExpressions,
 			CancellationToken cancellationToken)
-			where TEntity : class, new()
+			where TEntity : class
 		{
 			if (source.Count == 0)
 			{
@@ -260,7 +260,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 			string incomingInlineTableCommand,
 			Expression<Func<UpdateEntry<TEntity>, bool>> condition,
 			List<object> parameters)
-			where TEntity : class, new()
+			where TEntity : class
 		{
 			IQueryable<TEntity> incoming;
 
