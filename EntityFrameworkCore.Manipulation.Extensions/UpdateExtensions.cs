@@ -18,12 +18,12 @@ using System.Threading.Tasks;
 
 namespace EntityFrameworkCore.Manipulation.Extensions
 {
-	public class UpdateEntry<TEntity>
+	public class UpdateEntry<TEntity, TInlineEntity>
 		where TEntity : class, new()
 	{
 		public TEntity Current { get; set; }
 
-		public TEntity Incoming { get; set; }
+		public TInlineEntity Incoming { get; set; }
 	}
 
 	public static class UpdateExtensions
@@ -34,7 +34,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 			this DbContext dbContext,
 			IReadOnlyCollection<TEntity> source,
 			IEnumerable<Expression<Func<TEntity, object>>> includedProperties = null,
-			Expression<Func<UpdateEntry<TEntity>, bool>> condition = null,
+			Expression<Func<UpdateEntry<TEntity, TEntity>, bool>> condition = null,
 			CancellationToken cancellationToken = default)
 			where TEntity : class, new()
 		{
@@ -54,32 +54,64 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 				return Task.FromResult<IReadOnlyCollection<TEntity>>(Array.Empty<TEntity>());
 			}
 
-			return UpdateInternalAsync(dbContext, source, includedProperties, condition, cancellationToken);
+			return UpdateInternalAsync<TEntity, TEntity, TEntity>(dbContext, source, includedProperties, condition, cancellationToken);
 		}
 
-		private static async Task<IReadOnlyCollection<TEntity>> UpdateInternalAsync<TEntity>(
+		public static Task<IReadOnlyCollection<TEntity>> UpdateAsync<TEntity, TInlineEntity, TBase>(
 			this DbContext dbContext,
-			IReadOnlyCollection<TEntity> source,
+			IReadOnlyCollection<TInlineEntity> source,
+			IEnumerable<Expression<Func<TEntity, object>>> includedProperties = null,
+			Expression<Func<UpdateEntry<TEntity, TInlineEntity>, bool>> condition = null,
+			CancellationToken cancellationToken = default)
+			where TEntity : class, TBase, new()
+			where TInlineEntity : class, TBase, new()
+		{
+			if (dbContext == null)
+			{
+				throw new ArgumentNullException(nameof(dbContext));
+			}
+
+			if (source == null)
+			{
+				throw new ArgumentNullException(nameof(source));
+			}
+
+			if (source.Count == 0)
+			{
+				// Nothing to do.
+				return Task.FromResult<IReadOnlyCollection<TEntity>>(Array.Empty<TEntity>());
+			}
+
+			return UpdateInternalAsync<TEntity, TInlineEntity, TBase>(dbContext, source, includedProperties, condition, cancellationToken);
+		}
+
+		private static async Task<IReadOnlyCollection<TEntity>> UpdateInternalAsync<TEntity, TInlineEntity, TBase>(
+			this DbContext dbContext,
+			IReadOnlyCollection<TInlineEntity> source,
 			IEnumerable<Expression<Func<TEntity, object>>> includedPropertyExpressions,
-			Expression<Func<UpdateEntry<TEntity>, bool>> condition,
+			Expression<Func<UpdateEntry<TEntity, TInlineEntity>, bool>> condition,
 			CancellationToken cancellationToken)
-			where TEntity : class, new()
+			where TEntity : class, TBase, new()
+			where TInlineEntity : class, TBase, new()
 		{
 			var stringBuilder = new StringBuilder(1000);
 
 			IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
+			IEntityType inlineEntityType = dbContext.Model.FindEntityType(typeof(TInlineEntity));
 
-			string tableName = entityType.GetTableName();
+			string targetTableName = entityType.GetTableName();
 			IKey primaryKey = entityType.FindPrimaryKey();
-			IProperty[] properties = entityType.GetProperties().ToArray();
-			IProperty[] nonPrimaryKeyProperties = properties.Except(primaryKey.Properties).ToArray();
+			IProperty[] targetTableProperties = entityType.GetProperties().ToArray();
+			IProperty[] targetTableNonPrimaryKeyProperties = targetTableProperties.Except(primaryKey.Properties).ToArray();
 
-			IProperty[] propertiesToUpdate = nonPrimaryKeyProperties;
+			IProperty[] inlineTableProperties = inlineEntityType.GetProperties().ToArray();
+
+			IProperty[] propertiesToUpdate = targetTableNonPrimaryKeyProperties;
 			if (includedPropertyExpressions != null)
 			{
 				// If there's a selection of properties to include, we'll filter it down to that + the PK
-				propertiesToUpdate = properties
-					.Intersect(primaryKey.Properties.Concat(includedPropertyExpressions.GetPropertiesFromExpressions(properties)).Distinct())
+				propertiesToUpdate = targetTableProperties
+					.Intersect(primaryKey.Properties.Concat(includedPropertyExpressions.GetPropertiesFromExpressions(targetTableProperties)).Distinct())
 					.ToArray();
 			}
 
@@ -88,8 +120,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 			var isSqlite = dbContext.Database.IsSqlite();
 			if (isSqlite)
 			{
-				string incomingInlineTableCommand = new StringBuilder().AppendSelectFromInlineTable(properties, source, parameters, "x", sqliteSyntax: true).ToString();
-				IQueryable<TEntity> incoming = CreateIncomingQueryable(dbContext, incomingInlineTableCommand, condition, parameters);
+				string incomingInlineTableCommand = new StringBuilder().AppendSelectFromInlineTable(inlineTableProperties, source, parameters, "x", sqliteSyntax: true).ToString();
+				IQueryable<TInlineEntity> incoming = CreateIncomingQueryable<TEntity, TInlineEntity, TBase>(dbContext, incomingInlineTableCommand, condition, parameters);
 				(string sourceCommand, var sourceCommandParameters) = incoming.ToSqlCommand(filterCollapsedP0Param: true);
 				parameters.AddRange(sourceCommandParameters);
 
@@ -102,31 +134,31 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 							 .Append(sourceCommand).AppendLine(";");
 
 				// Update the target table from the temp table
-				stringBuilder.Append("UPDATE ").Append(tableName).AppendLine(" SET")
+				stringBuilder.Append("UPDATE ").Append(targetTableName).AppendLine(" SET")
 						.AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=incoming.{property.Name}"))).AppendLine()
 						.Append("FROM ").Append(TempDeleteTableName).AppendLine(" AS incoming")
-						.Append("WHERE ").AppendJoinCondition(primaryKey, tableName, "incoming").AppendLine("; ");
+						.Append("WHERE ").AppendJoinCondition(primaryKey, targetTableName, "incoming").AppendLine("; ");
 
 				// Select the latest state of the affected rows in the table
 				stringBuilder
-					.Append("SELECT target.* FROM ").Append(tableName).AppendLine(" AS target")
+					.Append("SELECT target.* FROM ").Append(targetTableName).AppendLine(" AS target")
 						.Append(" JOIN ").Append(TempDeleteTableName).Append(" AS source ON ").AppendJoinCondition(primaryKey).AppendLine(";")
 					.Append("COMMIT;");
 			}
 			else
 			{
 				string userDefinedTableTypeName = null;
-				if (ConfigUtils.ShouldUseTableValuedParameters(properties, source))
+				if (ConfigUtils.ShouldUseTableValuedParameters(inlineTableProperties, source))
 				{
-					userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, cancellationToken);
+					userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(inlineEntityType, cancellationToken);
 				}
 
 				string incomingInlineTableCommand = userDefinedTableTypeName != null ?
-					new StringBuilder().AppendTableValuedParameter(userDefinedTableTypeName, properties, source, parameters).ToString()
+					new StringBuilder().AppendTableValuedParameter(userDefinedTableTypeName, inlineTableProperties, source, parameters).ToString()
 					:
-					new StringBuilder().AppendSelectFromInlineTable(properties, source, parameters, "x").ToString();
+					new StringBuilder().AppendSelectFromInlineTable(inlineTableProperties, source, parameters, "x").ToString();
 
-				IQueryable<TEntity> incoming = CreateIncomingQueryable(dbContext, incomingInlineTableCommand, condition, parameters);
+				IQueryable<TInlineEntity> incoming = CreateIncomingQueryable<TEntity, TInlineEntity, TBase>(dbContext, incomingInlineTableCommand, condition, parameters);
 
 				(string sourceCommand, var sourceCommandParameters) = incoming.ToSqlCommand(filterCollapsedP0Param: true);
 				parameters.AddRange(sourceCommandParameters);
@@ -141,7 +173,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 				string inlineTableAlias = joinAliasRegex.Match(fromJoinCommand).Value.Trim();
 
 				stringBuilder
-					.Append("UPDATE ").Append(tableName).AppendLine(" SET")
+					.Append("UPDATE ").Append(targetTableName).AppendLine(" SET")
 						.AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}={inlineTableAlias}.{property.Name}"))).AppendLine()
 					.AppendLine("OUTPUT inserted.*")
 					.Append(fromJoinCommand);
@@ -155,24 +187,25 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 				.ToListAsync(cancellationToken);
 		}
 
-		private static IQueryable<TEntity> CreateIncomingQueryable<TEntity>(
+		private static IQueryable<TInlineEntity> CreateIncomingQueryable<TEntity, TInlineEntity, TBase>(
 			DbContext dbContext,
 			string incomingInlineTableCommand,
-			Expression<Func<UpdateEntry<TEntity>, bool>> condition,
+			Expression<Func<UpdateEntry<TEntity, TInlineEntity>, bool>> condition,
 			List<object> parameters)
-			where TEntity : class, new()
+			where TEntity : class, TBase, new()
+			where TInlineEntity : class, TBase, new()
 		{
-			IQueryable<TEntity> incoming;
+			IQueryable<TInlineEntity> incoming;
 
 			// Create the incoming query as an inline table joined onto the target table
 			if (condition != null)
 			{
 				incoming = dbContext.Set<TEntity>()
 					.Join(
-						dbContext.Set<TEntity>().FromSqlRaw(incomingInlineTableCommand, parameters.ToArray()),
-						x => x,
-						x => x,
-						(outer, inner) => new UpdateEntry<TEntity> { Current = outer, Incoming = inner })
+						dbContext.Set<TInlineEntity>().FromSqlRaw(incomingInlineTableCommand, parameters.ToArray()),
+						x => (TBase)x,
+						x => (TBase)x,
+						(outer, inner) => new UpdateEntry<TEntity, TInlineEntity> { Current = outer, Incoming = inner })
 					.Where(condition)
 					.Select(updateEntry => updateEntry.Incoming);
 			}
@@ -180,9 +213,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 			{
 				incoming = dbContext.Set<TEntity>()
 					.Join(
-						dbContext.Set<TEntity>().FromSqlRaw(incomingInlineTableCommand, parameters.ToArray()),
-						x => x,
-						x => x,
+						dbContext.Set<TInlineEntity>().FromSqlRaw(incomingInlineTableCommand, parameters.ToArray()),
+						x => (TBase)x,
+						x => (TBase)x,
 						(outer, inner) => inner);
 			}
 

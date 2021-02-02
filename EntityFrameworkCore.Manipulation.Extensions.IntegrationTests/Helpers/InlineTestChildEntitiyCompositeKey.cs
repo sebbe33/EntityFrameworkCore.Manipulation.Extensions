@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 {
-	public class TestEntityCompositeKey : ITestEntityCompositeKey
+    public class InlineTestChildEntitiyCompositeKey : ITestEntityCompositeKey
 	{
 		public string IdPartA { get; set; }
 
@@ -13,18 +13,18 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 
 		public bool BoolTestValue { get; set; }
 
-		public long LongTestValue { get; set; }
+		public int ExtendedProperty { get; set; }
 
 		public DateTime DateTimeTestValue { get; set; }
 
-		public DateTime? NullableDateTimeTestValue { get; set; }
+		public TestEnum EnumValue { get; set; }
 
 		public Guid GuidValue { get; set; }
 
+		public long LongTestValue { get; set; }
+
+		public DateTime? NullableDateTimeTestValue { get; set; }
+
 		public Guid? NullableGuidValue { get; set; }
-
-		public TestEnum EnumValue { get; set; }
-
-		// public TestEnum? NullableEnumValue { get; set; }
 	}
 }
