@@ -68,13 +68,13 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
 						var parameter = new SqlParameter($"value{parameters.Count}", value);
 
+						if (value == null)
+						{
+							parameter = new SqlParameter(parameter.ParameterName, (object)DBNull.Value);
+						}
+
 						if (nullableUnderlyingType != default)
 						{
-							if (value == null)
-							{
-								parameter = new SqlParameter(parameter.ParameterName, (object)DBNull.Value);
-							}
-
 							type = nullableUnderlyingType;
 						}
 
