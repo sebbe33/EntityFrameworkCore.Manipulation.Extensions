@@ -64,7 +64,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 					.AppendLine("OUTPUT DELETED.* ");
 			}
 
-			return await dbContext.Set<TEntity>().FromSqlRaw(stringBuilder.ToString())
+			object[] parameters = targetCommandParameters.ToArray();
+
+			return await dbContext.Set<TEntity>().FromSqlRaw(stringBuilder.ToString(), parameters)
 												.AsNoTracking()
 												.ToListAsync(cancellationToken)
 												.ConfigureAwait(false);
