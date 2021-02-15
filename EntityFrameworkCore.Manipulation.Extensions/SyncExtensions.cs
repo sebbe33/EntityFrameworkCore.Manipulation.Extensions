@@ -16,7 +16,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
     /// </summary>
     public static class SyncExtensions
     {
-        public static async Task<ISyncResult<TEntity>> SyncAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> target, IReadOnlyCollection<TEntity> source, CancellationToken cancellationToken = default)
+        public static async Task<ISyncResult<TEntity>> SyncAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> target, IReadOnlyCollection<TEntity> source, IClusivityBuilder<TEntity> insertClusivityBuilder = null, IClusivityBuilder<TEntity> updateClusivityBuilder = null, CancellationToken cancellationToken = default)
             where TEntity : class, new()
             => await SyncInternalAsync(
                 dbContext ?? throw new ArgumentNullException(nameof(dbContext)),
@@ -24,9 +24,11 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 source ?? throw new ArgumentNullException(nameof(source)),
                 ignoreUpdates: false, // this is a full sync
                 ignoreDeletions: false,
-                cancellationToken);
+                insertClusivityBuilder,
+				updateClusivityBuilder,
+				cancellationToken);
 
-        public static async Task<ISyncWithoutUpdateResult<TEntity>> SyncWithoutUpdateAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> target, IReadOnlyCollection<TEntity> source, CancellationToken cancellationToken = default)
+        public static async Task<ISyncWithoutUpdateResult<TEntity>> SyncWithoutUpdateAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> target, IReadOnlyCollection<TEntity> source, IClusivityBuilder<TEntity> insertClusivityBuilder = null, CancellationToken cancellationToken = default)
             where TEntity : class, new()
             => await SyncInternalAsync(
                 dbContext ?? throw new ArgumentNullException(nameof(dbContext)),
@@ -34,9 +36,11 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 source ?? throw new ArgumentNullException(nameof(source)),
                 ignoreUpdates: true, // this is a sync without updates
                 ignoreDeletions: false,
+				insertClusivityBuilder,
+				null,
                 cancellationToken);
 
-        public static async Task<IUpsertResult<TEntity>> UpsertAsync<TEntity>(this DbContext dbContext, IReadOnlyCollection<TEntity> source, CancellationToken cancellationToken = default)
+        public static async Task<IUpsertResult<TEntity>> UpsertAsync<TEntity>(this DbContext dbContext, IReadOnlyCollection<TEntity> source, IClusivityBuilder<TEntity> insertClusivityBuilder = null, IClusivityBuilder<TEntity> updateClusivityBuilder = null, CancellationToken cancellationToken = default)
             where TEntity : class, new()
             => await SyncInternalAsync(
                 dbContext ?? throw new ArgumentNullException(nameof(dbContext)),
@@ -44,7 +48,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 source ?? throw new ArgumentNullException(nameof(source)),
                 ignoreUpdates: false,
                 ignoreDeletions: true, // this is a sync for upserts
-                cancellationToken);
+				insertClusivityBuilder,
+				updateClusivityBuilder,
+				cancellationToken);
 
         private static async Task<SyncResult<TEntity>> SyncInternalAsync<TEntity>(
             this DbContext dbContext, 
@@ -52,6 +58,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             IReadOnlyCollection<TEntity> source, 
             bool ignoreUpdates,
             bool ignoreDeletions,
+			IClusivityBuilder<TEntity> insertClusivityBuilder,
+			IClusivityBuilder<TEntity> updateClusivityBuilder,
             CancellationToken cancellationToken)
             where TEntity : class, new()
         {
@@ -63,6 +71,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             IKey primaryKey = entityType.FindPrimaryKey();
             IProperty[] properties = entityType.GetProperties().ToArray();
             IProperty[] nonPrimaryKeyProperties = properties.Except(primaryKey.Properties).ToArray();
+
+            IProperty[] propertiesToUpdate = updateClusivityBuilder == null ? nonPrimaryKeyProperties : updateClusivityBuilder.Build(nonPrimaryKeyProperties);
+            IProperty[] propertiesToInsert = insertClusivityBuilder == null ? properties : primaryKey.Properties.Concat(insertClusivityBuilder.Build(nonPrimaryKeyProperties)).ToArray();
 
             (string targetCommand, var targetCommandParameters) = target.ToSqlCommand();
 
@@ -117,15 +128,15 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
                 // UPSERT
                 stringBuilder
-                    .Append("INSERT OR REPLACE INTO ").Append(tableName).AppendColumnNames(properties, true)
-                        .Append(" SELECT ").AppendJoin(",", properties.Select(m => SourceAliaser(m.GetColumnName())))
+                    .Append("INSERT OR REPLACE INTO ").Append(tableName).AppendColumnNames(propertiesToInsert, true)
+                        .Append(" SELECT ").AppendJoin(",", propertiesToInsert.Select(m => SourceAliaser(m.GetColumnName())))
                         .AppendLine(" FROM EntityFrameworkManipulationSync WHERE _$action='INSERT' OR _$action='UPDATE' ");
 
                 // There's no need to update if all rows are included in the primary key as nothing has changed.
-                if (nonPrimaryKeyProperties.Any())
+                if (propertiesToUpdate.Any())
                 {
-                    stringBuilder.Append("    ON CONFLICT").AppendColumnNames(primaryKey.Properties, true).Append(" DO UPDATE SET ")
-                            .AppendJoin(",", nonPrimaryKeyProperties.Select(property => FormattableString.Invariant($"{property.Name}=excluded.{property.Name}")));
+                    stringBuilder.Append("    ON CONFLICT ").AppendColumnNames(primaryKey.Properties, true).Append(" DO UPDATE SET ")
+                            .AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=excluded.{property.Name}")));
                 }
                 stringBuilder.AppendLine(";");
                             
@@ -161,13 +172,13 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
                 stringBuilder.Append(" AS source ON ").AppendJoinCondition(primaryKey).AppendLine(" ")
                     .Append("WHEN NOT MATCHED BY TARGET THEN INSERT ")
-                    .AppendColumnNames(properties, wrapInParanthesis: true).Append("VALUES ")
-                    .AppendColumnNames(properties, wrapInParanthesis: true, identifierPrefix: "source")
+                    .AppendColumnNames(propertiesToInsert, wrapInParanthesis: true).Append("VALUES ")
+                    .AppendColumnNames(propertiesToInsert, wrapInParanthesis: true, identifierPrefix: "source")
                     .AppendLine();
 
                 if (!ignoreUpdates)
                 {
-                    stringBuilder.Append("WHEN MATCHED THEN UPDATE SET ").AppendJoin(",", nonPrimaryKeyProperties.Select(property => FormattableString.Invariant($"{property.Name}=source.{property.Name}"))).AppendLine();
+                    stringBuilder.Append("WHEN MATCHED THEN UPDATE SET ").AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=source.{property.Name}"))).AppendLine();
                 }
 
                 if (!ignoreDeletions)
@@ -191,7 +202,19 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             var propertyValueConverters = isSqlite ? EntityUtils.GetEntityPropertiesValueConverters(properties) : null;
             var keyValueConverters = isSqlite ? EntityUtils.GetEntityPropertiesValueConverters(primaryKey.Properties.ToArray()) : null;
 
-            while (await reader.ReadAsync(cancellationToken))
+			IProperty[] propertiesNotIncludedInUpdate = null;
+			if (updateClusivityBuilder != null)
+			{
+				propertiesNotIncludedInUpdate = nonPrimaryKeyProperties.Except(propertiesToUpdate).ToArray();
+			}
+
+			IProperty[] propertiesNotIncludedInInsert = null;
+			if (insertClusivityBuilder != null)
+			{
+				propertiesNotIncludedInInsert = properties.Except(propertiesToInsert).ToArray();
+			}
+
+			while (await reader.ReadAsync(cancellationToken))
             {
                 var row = new object[1 + primaryKey.Properties.Count + properties.Length];
                 reader.DbDataReader.GetValues(row);
@@ -201,7 +224,17 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
                 if (string.Equals(action, "INSERT", StringComparison.OrdinalIgnoreCase))
                 {
-                    insertedEntities.Add(EntityUtils.FindEntityBasedOnKey(source, primaryKey, insertKeyPropertyValues, keyValueConverters));
+					var newValue = EntityUtils.FindEntityBasedOnKey(source, primaryKey, insertKeyPropertyValues, keyValueConverters);
+					if (propertiesNotIncludedInInsert != null)
+					{
+						// If properties are included/excluded from the insert, then we have to set them to their default value to reflect the state in the DB
+						foreach (var property in propertiesNotIncludedInInsert)
+						{
+							property.PropertyInfo.SetValue(newValue, null);
+						}
+					}
+
+					insertedEntities.Add(newValue);
                 }
                 else if (string.Equals(action, "DELETE", StringComparison.OrdinalIgnoreCase))
                 {
@@ -209,9 +242,19 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 }
                 else
                 {
-                    // Update
-                    var newValue = EntityUtils.FindEntityBasedOnKey(source, primaryKey, insertKeyPropertyValues, keyValueConverters);
-                    var oldValue = EntityUtils.EntityFromRow<TEntity>(row, properties, deletedColumnOffset, propertyValueConverters);
+					// Update
+					var oldValue = EntityUtils.EntityFromRow<TEntity>(row, properties, deletedColumnOffset, propertyValueConverters);
+					var newValue = EntityUtils.FindEntityBasedOnKey(source, primaryKey, insertKeyPropertyValues, keyValueConverters);
+
+					// We have to bear in mind that properties might be included/excluded. In that case, we'll have to take these props' values from the oldValue
+					if (propertiesNotIncludedInUpdate != null)
+					{
+						foreach (var property in propertiesNotIncludedInUpdate)
+						{
+							property.PropertyInfo.SetValue(newValue, property.PropertyInfo.GetValue(oldValue));
+						}
+					}
+
                     updatedEntities.Add((oldValue, newValue));
                 }
             }

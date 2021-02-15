@@ -651,5 +651,123 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
                 existingEntities.Where(e => e.Id.StartsWith("Should Be Peristed"))
                 .Concat(expectedEntitiesInTargetAfterSync));
         }
-    }
+
+		[DataTestMethod]
+		[DataRow(DbProvider.Sqlite)]
+		[DataRow(DbProvider.SqlServer)]
+		public async Task UpsertAsync_ShouldInsertAndUpdateIncludedPropertiesAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
+		{
+			// Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
+			var existingEntities = new[]
+			{
+				new TestEntityCompositeKey { IdPartA = "Existing 1", IdPartB = "B", IntTestValue = 561645, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 54123 },
+				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165, StringTestValue = "Original 1" },
+				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521, StringTestValue = "Original 2" },
+				new TestEntityCompositeKey { IdPartA = "Existing 2", IdPartB = "B", IntTestValue = 9932165, BoolTestValue = false, DateTimeTestValue = new DateTime(654165132), LongTestValue = 5641324 },
+			};
+			using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+
+			var entitiesToUpsert = new[]
+			{
+				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 1", IdPartB = "B", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123, StringTestValue = "Well well" },
+				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 2", IdPartB = "B", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354, StringTestValue = "Well" },
+				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = 3216, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 89132453, StringTestValue = "Not included", GuidValue = Guid.NewGuid() },
+				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = 651654, BoolTestValue = false, DateTimeTestValue = new DateTime(6541231654132163), LongTestValue = 21324351, StringTestValue = "Not included", GuidValue = Guid.NewGuid() },
+			};
+
+			var expectedEntitiesInTargetAfterSync = new[]
+			{
+				// Two entities should not be touched
+				existingEntities[0],
+				existingEntities[3],
+
+				// Inserted. Note: none of the nullable fields are present and should result in default values
+				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 1", IdPartB = "B", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123, },
+				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 2", IdPartB = "B", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354, },
+
+				// Updated. Only the fields in the inclusion builder should be updated. The rest should have their original value
+				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = entitiesToUpsert[2].IntTestValue, BoolTestValue = existingEntities[1].BoolTestValue, DateTimeTestValue = entitiesToUpsert[2].DateTimeTestValue, LongTestValue = entitiesToUpsert[2].LongTestValue, StringTestValue = existingEntities[1].StringTestValue },
+				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = entitiesToUpsert[3].IntTestValue, BoolTestValue = existingEntities[2].BoolTestValue, DateTimeTestValue = entitiesToUpsert[3].DateTimeTestValue, LongTestValue = entitiesToUpsert[3].LongTestValue, StringTestValue = existingEntities[2].StringTestValue },
+			};
+
+			// Include all fields which are non-nullable
+			var insertInclusionBuilder = new InclusionBuilder<TestEntityCompositeKey>()
+				.Include(x => x.BoolTestValue, x => x.DateTimeTestValue, x => x.EnumValue, x => x.GuidValue, x => x.IntTestValue, x => x.LongTestValue);
+
+			var updateInclusionBuilder = new InclusionBuilder<TestEntityCompositeKey>()
+				.Include(x => x.IntTestValue, x => x.DateTimeTestValue)
+				.Include(nameof(TestEntity.LongTestValue));
+
+			// Invoke the method and check that the result is the expected entities
+			var result = await context.UpsertAsync(
+				entitiesToUpsert,
+				insertClusivityBuilder: insertInclusionBuilder,
+				updateClusivityBuilder: updateInclusionBuilder);
+
+			result.UpdatedEntities.Should().BeEquivalentTo(new[] { (existingEntities[1], expectedEntitiesInTargetAfterSync[4]), (existingEntities[2], expectedEntitiesInTargetAfterSync[5]) });
+			result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Where(entity => entity.IdPartA.StartsWith("TO BE INSERTED")));
+
+			// Then check that the the changes were synced to the db. The resulting table should not touch entries which did not match, nor should it contain non-included fields
+			context.TestEntitiesWithCompositeKey.ToList().Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync);
+		}
+
+		[DataTestMethod]
+		[DataRow(DbProvider.Sqlite)]
+		[DataRow(DbProvider.SqlServer)]
+		public async Task UpsertAsync_ShouldInsertAndUpdateNonExcludedPropertiesAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
+		{
+			// Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
+			var existingEntities = new[]
+			{
+				new TestEntityCompositeKey { IdPartA = "Existing 1", IdPartB = "B", IntTestValue = 561645, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 54123 },
+				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165, StringTestValue = "Original 1" },
+				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521, StringTestValue = "Original 2" },
+				new TestEntityCompositeKey { IdPartA = "Existing 2", IdPartB = "B", IntTestValue = 9932165, BoolTestValue = false, DateTimeTestValue = new DateTime(654165132), LongTestValue = 5641324 },
+			};
+			using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+
+			var entitiesToUpsert = new[]
+			{
+				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 1", IdPartB = "B", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123, StringTestValue = "Well well" },
+				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 2", IdPartB = "B", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354, StringTestValue = "Well" },
+				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = 3216, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 89132453, StringTestValue = "Not included", GuidValue = Guid.NewGuid() },
+				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = 651654, BoolTestValue = false, DateTimeTestValue = new DateTime(6541231654132163), LongTestValue = 21324351, StringTestValue = "Not included", GuidValue = Guid.NewGuid() },
+			};
+
+			var expectedEntitiesInTargetAfterSync = new[]
+			{
+				// Two entities should not be touched
+				existingEntities[0],
+				existingEntities[3],
+
+				// Inserted. Note: none of the nullable fields are present and should result in default values
+				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 1", IdPartB = "B", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123, },
+				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 2", IdPartB = "B", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354, },
+
+				// Updated. Only the fields in the inclusion builder should be updated. The rest should have their original value
+				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = entitiesToUpsert[2].IntTestValue, BoolTestValue = existingEntities[1].BoolTestValue, DateTimeTestValue = entitiesToUpsert[2].DateTimeTestValue, LongTestValue = entitiesToUpsert[2].LongTestValue, StringTestValue = existingEntities[1].StringTestValue },
+				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = entitiesToUpsert[3].IntTestValue, BoolTestValue = existingEntities[2].BoolTestValue, DateTimeTestValue = entitiesToUpsert[3].DateTimeTestValue, LongTestValue = entitiesToUpsert[3].LongTestValue, StringTestValue = existingEntities[2].StringTestValue },
+			};
+
+			// Exclude all fields which are non-nullable
+			var insertExclusionBuilder = new ExclusionBuilder<TestEntityCompositeKey>()
+				.Exclude(x => x.StringTestValue, x => x.NullableDateTimeTestValue, x => x.NullableGuidValue);
+
+			var updateExclusionBuilder = new ExclusionBuilder<TestEntityCompositeKey>()
+				.Exclude(x => x.BoolTestValue, x => x.StringTestValue)
+				.Exclude(nameof(TestEntityCompositeKey.GuidValue));
+
+			// Invoke the method and check that the result is the expected entities
+			var result = await context.UpsertAsync(
+				entitiesToUpsert,
+				insertClusivityBuilder: insertExclusionBuilder,
+				updateClusivityBuilder: updateExclusionBuilder);
+
+			result.UpdatedEntities.Should().BeEquivalentTo(new[] { (existingEntities[1], expectedEntitiesInTargetAfterSync[4]), (existingEntities[2], expectedEntitiesInTargetAfterSync[5]) });
+			result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Where(entity => entity.IdPartA.StartsWith("TO BE INSERTED")));
+
+			// Then check that the the changes were synced to the db. The resulting table should not touch entries which did not match, nor should it contain non-included fields
+			context.TestEntitiesWithCompositeKey.ToList().Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync);
+		}
+	}
 }

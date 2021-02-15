@@ -31,59 +31,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 		private static readonly Regex joinAliasRegex = new Regex("(?<=AS).+(?=ON)");
 
 		/// <summary>
-		/// Updates the given <paramref name="source"/> transcationally.
-		/// </summary>
-		/// <typeparam name="TEntity">The type of entity to update.</typeparam>
-		/// <param name="dbContext">The EF <see cref="DbContext"/>.</param>
-		/// <param name="source">The local source of the update. These entities will update their corresponding match in the database if one exists.</param>
-		/// <param name="cancellationToken">The cancellation token.</param>
-		/// <returns>
-		/// A collection of the entities which were updated. If for example an entity is missing in the DB,
-		/// it will not be upate and not be included here.
-		/// </returns>
-		public static Task<IReadOnlyCollection<TEntity>> UpdateAsync<TEntity>(
-			this DbContext dbContext,
-			IReadOnlyCollection<TEntity> source,
-			CancellationToken cancellationToken = default)
-			where TEntity : class
-		{
-			ValidateInputParams(dbContext, source);
-
-			IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
-			return UpdateInternalAsync(entityType, dbContext, source, null, null, cancellationToken);
-		}
-
-		/// <summary>
-		/// Conditionally updates the given <paramref name="source"/> transcationally.
-		/// </summary>
-		/// <typeparam name="TEntity">The type of entity to update.</typeparam>
-		/// <param name="dbContext">The EF <see cref="DbContext"/>.</param>
-		/// <param name="source">The local source of the update. These entities will update their corresponding match in the database if one exists.</param>
-		/// <param name="condition">
-		/// The condition on which to go through with an update on an entity level. You can use this to perform checks against
-		/// the version of the entity that's in the database and determine if you want to update it. For example, you could
-		/// update only if the version you're trying to update with is newer:
-		/// <c>updateEntry => updateEntry.Current.Version < updateEntry.Incoming.Version</c>.
-		/// </param>
-		/// <param name="cancellationToken">The cancellation token.</param>
-		/// <returns>
-		/// A collection of the entities which were updated. If for example an entity is missing in the DB,
-		/// or it is not matching a the given condition, it will not be upate and not be included here.
-		/// </returns>
-		public static Task<IReadOnlyCollection<TEntity>> UpdateAsync<TEntity>(
-			this DbContext dbContext,
-			IReadOnlyCollection<TEntity> source,
-			Expression<Func<UpdateEntry<TEntity>, bool>> condition,
-			CancellationToken cancellationToken = default)
-			where TEntity : class
-		{
-			ValidateInputParams(dbContext, source);
-
-			IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
-			return UpdateInternalAsync(entityType, dbContext, source, condition, null, cancellationToken);
-		}
-
-		/// <summary>
 		/// Conditionally updates the given <paramref name="source"/> transcationally.
 		/// </summary>
 		/// <typeparam name="TEntity">The type of entity to update.</typeparam>
@@ -95,41 +42,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 		/// update only if the version you're trying to update with is newer:
 		/// <c>updateEntry => updateEntry.Current.Version < updateEntry.Incoming.Version</c>.
 		/// </param>
-		/// <param name="includedProperties">A list of property expressions for the properties to include in the update.</param>
-		/// <param name="cancellationToken">The cancellation token.</param>
-		/// <returns>
-		/// A collection of the entities which were updated. If for example an entity is missing in the DB,
-		/// or it is not matching a the given condition, it will not be upate and not be included here.
-		/// </returns>
-		public static Task<IReadOnlyCollection<TEntity>> UpdateAsync<TEntity>(
-			this DbContext dbContext,
-			IReadOnlyCollection<TEntity> source,
-			Expression<Func<UpdateEntry<TEntity>, bool>> condition,
-			IEnumerable<Expression<Func<TEntity, object>>> includedProperties,
-			CancellationToken cancellationToken = default)
-			where TEntity : class
-		{
-			ValidateInputParams(dbContext, source);
-
-			IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
-			IProperty[] properties = entityType.GetProperties().ToArray();
-
-			return UpdateInternalAsync(entityType, dbContext, source, condition, includedProperties?.GetPropertiesFromExpressions(properties), cancellationToken);
-		}
-
-		/// <summary>
-		/// Conditionally updates the given <paramref name="source"/> transcationally.
-		/// </summary>
-		/// <typeparam name="TEntity">The type of entity to update.</typeparam>
-		/// <param name="dbContext">The EF <see cref="DbContext"/>.</param>
-		/// <param name="source">The local source of the update. These entities will update their corresponding match in the database if one exists.</param>
-		/// <param name="condition">
-		/// Optional: The condition on which to go through with an update on an entity level. You can use this to perform checks against
-		/// the version of the entity that's in the database and determine if you want to update it. For example, you could
-		/// update only if the version you're trying to update with is newer:
-		/// <c>updateEntry => updateEntry.Current.Version < updateEntry.Incoming.Version</c>.
+		/// <param name="clusivityBuilder">
+		/// A builder for included/excluded properties to update. This is used to target which properties to update. If no builder
+		/// is supplied, all non-primary key properties will be updated.
 		/// </param>
-		/// <param name="includedProperties">A list of property names for the properties to include in the update.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <returns>
 		/// A collection of the entities which were updated. If for example an entity is missing in the DB,
@@ -138,25 +54,29 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 		public static Task<IReadOnlyCollection<TEntity>> UpdateAsync<TEntity>(
 			this DbContext dbContext,
 			IReadOnlyCollection<TEntity> source,
-			Expression<Func<UpdateEntry<TEntity>, bool>> condition,
-			IEnumerable<string> includedProperties,
+			Expression<Func<UpdateEntry<TEntity>, bool>> condition = null,
+			IClusivityBuilder<TEntity> clusivityBuilder = null,
 			CancellationToken cancellationToken = default)
 			where TEntity : class
 		{
-			ValidateInputParams(dbContext, source);
+			if (dbContext == null)
+			{
+				throw new ArgumentNullException(nameof(dbContext));
+			}
 
-			IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
-			IProperty[] properties = entityType.GetProperties().ToArray();
+			if (source == null)
+			{
+				throw new ArgumentNullException(nameof(source));
+			}
 
-			return UpdateInternalAsync(entityType, dbContext, source, condition, includedProperties.GetPropertiesFromPropertyNames(properties), cancellationToken);
+			return UpdateInternalAsync(dbContext, source, condition, clusivityBuilder, cancellationToken);
 		}
 
 		private static async Task<IReadOnlyCollection<TEntity>> UpdateInternalAsync<TEntity>(
-			IEntityType entityType,
 			DbContext dbContext,
 			IReadOnlyCollection<TEntity> source,
 			Expression<Func<UpdateEntry<TEntity>, bool>> condition,
-			IEnumerable<IProperty> includedPropertyExpressions,
+			IClusivityBuilder<TEntity> clusivityBuilder,
 			CancellationToken cancellationToken)
 			where TEntity : class
 		{
@@ -168,20 +88,13 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
 			var stringBuilder = new StringBuilder(1000);
 
+			IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
 			string tableName = entityType.GetTableName();
 			IKey primaryKey = entityType.FindPrimaryKey();
 			IProperty[] properties = entityType.GetProperties().ToArray();
 			IProperty[] nonPrimaryKeyProperties = properties.Except(primaryKey.Properties).ToArray();
 
-			IProperty[] propertiesToUpdate = nonPrimaryKeyProperties;
-			if (includedPropertyExpressions != null)
-			{
-				// If there's a selection of properties to include, we'll filter it down to that
-				propertiesToUpdate = properties
-					.Intersect(includedPropertyExpressions)
-					.Distinct()
-					.ToArray();
-			}
+			IProperty[] propertiesToUpdate = clusivityBuilder == null ? nonPrimaryKeyProperties : clusivityBuilder.Build(nonPrimaryKeyProperties);
 
 			List<object> parameters = new List<object>();
 
@@ -287,19 +200,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 			}
 
 			return incoming;
-		}
-
-		private static void ValidateInputParams<TEntity>(DbContext dbContext, IReadOnlyCollection<TEntity> source)
-		{
-			if (dbContext == null)
-			{
-				throw new ArgumentNullException(nameof(dbContext));
-			}
-
-			if (source == null)
-			{
-				throw new ArgumentNullException(nameof(source));
-			}
 		}
 	}
 }

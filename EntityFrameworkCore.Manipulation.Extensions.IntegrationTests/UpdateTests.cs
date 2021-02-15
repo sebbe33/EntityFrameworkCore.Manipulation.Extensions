@@ -201,11 +201,16 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 			};
 			using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities);
 
+			// Include long and datetime values - they are the only items expected to be updated based on the mocked data.
+			var inclusionBuilder = new InclusionBuilder<TestEntityCompositeKey>()
+				.Include(x => x.LongTestValue)
+				.Include(nameof(TestEntityCompositeKey.DateTimeTestValue));
+
 			// Invoke the method and check that the result the updated expected entities
 			var result = await context.UpdateAsync(
 				expectedEntities,
 				condition: x => x.Incoming.IntTestValue > x.Current.IntTestValue, // Only update if IntTestValue is greater than the incoming value, which rules out "Should not be updated 1"
-				includedProperties: new Expression<Func<TestEntityCompositeKey, object>>[] { x => x.LongTestValue, x => x.DateTimeTestValue });
+				clusivityBuilder: inclusionBuilder);
 
 			var expectedUpdatedEntity = new TestEntityCompositeKey
 			{
@@ -226,7 +231,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 		[DataTestMethod]
 		[DataRow(DbProvider.Sqlite)]
 		[DataRow(DbProvider.SqlServer)]
-		public async Task UpdateAsync_ShouldReturnCollectionWithOnlyIncludedPropertiesUpdated_WhenEntitiesMatchAndIncludedPropertyNamesArePassed(DbProvider provider)
+		public async Task UpdateAsync_ShouldReturnCollectionWithOnlyNonExcludedPropertiesUpdated_WhenEntitiesMatchAndIncludedPropertyNamesArePassed(DbProvider provider)
 		{
 			var existingEntities = new[]
 			{
@@ -241,11 +246,15 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 			};
 			using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities);
 
+			// Exclude int and bool values - they are expected to not be updated based on the mocked data.
+			var exclusionBuilder = new ExclusionBuilder<TestEntityCompositeKey>()
+				.Exclude(x => x.IntTestValue, x => x.BoolTestValue);
+
 			// Invoke the method and check that the result the updated expected entities
 			var result = await context.UpdateAsync(
 				expectedEntities,
 				condition: x => x.Incoming.IntTestValue > x.Current.IntTestValue, // Only update if IntTestValue is greater than the incoming value, which rules out "Should not be updated 1"
-				includedProperties: new[] { nameof(TestEntityCompositeKey.LongTestValue), nameof(TestEntityCompositeKey.DateTimeTestValue) });
+				clusivityBuilder: exclusionBuilder);
 
 			var expectedUpdatedEntity = new TestEntityCompositeKey
 			{
