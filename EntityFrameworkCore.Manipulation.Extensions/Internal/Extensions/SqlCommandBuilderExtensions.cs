@@ -40,10 +40,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             IProperty[] properties,
             IEnumerable<TEntity> entities,
             IList<object> parameters,
-            bool wrapInParanthesis = false)
+            bool wrapInParenthesis = false)
             where TEntity : class
         {
-            stringBuilder.Append(wrapInParanthesis ? " (" : " ");
+            stringBuilder.Append(wrapInParenthesis ? " (" : " ");
 
             stringBuilder.Append("VALUES");
 
@@ -51,19 +51,21 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             foreach (TEntity entity in entities)
             {
                 stringBuilder.Append(" (");
-                foreach (IProperty property in properties)
-                {
-                    // for each column value, create a placeholder, e.g. "{3}" used for the parameter
-                    stringBuilder.Append("{").Append(parameters.Count).Append("},");
-                    parameters.Add(property.PropertyInfo.GetValue(entity));
-                }
+				foreach (IProperty property in properties)
+				{
+					// for each column value, create a placeholder, e.g. "{3}" used for the parameter
+					stringBuilder.Append("{").Append(parameters.Count).Append("},");
 
-                stringBuilder.Length--; // remove the last ","
+					// then add the actual value to the list of parameters
+					parameters.Add(property.PropertyInfo.GetValue(entity));
+				}
+
+				stringBuilder.Length--; // remove the last ","
                 stringBuilder.Append("),");
             }
 
             stringBuilder.Length--; // remove the last ","
-            return stringBuilder.Append(wrapInParanthesis ? ") " : " ");
+            return stringBuilder.Append(wrapInParenthesis ? ") " : " ");
         }
 
         public static StringBuilder AppendSelectFromInlineTable<TEntity>(
@@ -80,12 +82,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 return stringBuilder
                 .Append("SELECT * FROM (SELECT ")
                 .AppendJoin(", ", Enumerable.Range(1, properties.Length).Select(columnNumber => $"[column{columnNumber}] {properties[columnNumber - 1].GetColumnName()}"))
-                .Append(" FROM").AppendValues(properties, entities, parameters, wrapInParanthesis: true)
+                .Append(" FROM").AppendValues(properties, entities, parameters, wrapInParenthesis: true)
                 .Append(") AS ").Append(tableAlias).Append(" ");
             }
 
             return stringBuilder
-                .Append("SELECT * FROM ").AppendValues(properties, entities, parameters, wrapInParanthesis: true)
+                .Append("SELECT * FROM ").AppendValues(properties, entities, parameters, wrapInParenthesis: true)
                 .Append(" AS ").Append(tableAlias).AppendColumnNames(properties, wrapInParanthesis: true);
         }
 
