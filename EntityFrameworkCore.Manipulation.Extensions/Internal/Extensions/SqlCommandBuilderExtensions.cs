@@ -36,12 +36,11 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
         }
 
         public static StringBuilder AppendValues<TEntity>(
-			this StringBuilder stringBuilder,
-			IProperty[] properties,
-			IEnumerable<TEntity> entities,
-			IList<object> parameters,
-			bool wrapInParanthesis = false,
-			bool useParameterPlaceholders = false)
+            this StringBuilder stringBuilder,
+            IProperty[] properties,
+            IEnumerable<TEntity> entities,
+            IList<object> parameters,
+            bool wrapInParanthesis = false)
             where TEntity : class
         {
             stringBuilder.Append(wrapInParanthesis ? " (" : " ");
@@ -52,44 +51,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             foreach (TEntity entity in entities)
             {
                 stringBuilder.Append(" (");
-				foreach (IProperty property in properties)
-				{
-					if (useParameterPlaceholders)
-					{
-						// for each column value, create a placeholder, e.g. "{3}" used for the parameter
-						stringBuilder.Append("{").Append(parameters.Count).Append("},");
-						parameters.Add(property.PropertyInfo.GetValue(entity));
-					}
-					else
-					{
-						object value = property.PropertyInfo.GetValue(entity);
-						Type type = property.PropertyInfo.PropertyType;
-						var nullableUnderlyingType = Nullable.GetUnderlyingType(type);
-
-						var parameter = new SqlParameter($"value{parameters.Count}", value);
-
-						if (value == null)
-						{
-							parameter = new SqlParameter(parameter.ParameterName, (object)DBNull.Value);
-						}
-
-						if (nullableUnderlyingType != default)
-						{
-							type = nullableUnderlyingType;
-						}
-
-						if (type.Equals(typeof(DateTime)))
-						{
-							parameter.SqlDbType = SqlDbType.DateTime2;
-						}
-
-						// for each column value, create a paramet placeholder, e.g. "@value_5" used for the parameter
-						stringBuilder.Append("@").Append(parameter.ParameterName).Append(",");
-
-						// then add the actual value to the list of parameters
-						parameters.Add(parameter);
-					}
-				}
+                foreach (IProperty property in properties)
+                {
+                    // for each column value, create a placeholder, e.g. "{3}" used for the parameter
+                    stringBuilder.Append("{").Append(parameters.Count).Append("},");
+                    parameters.Add(property.PropertyInfo.GetValue(entity));
+                }
 
                 stringBuilder.Length--; // remove the last ","
                 stringBuilder.Append("),");
@@ -113,7 +80,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 return stringBuilder
                 .Append("SELECT * FROM (SELECT ")
                 .AppendJoin(", ", Enumerable.Range(1, properties.Length).Select(columnNumber => $"[column{columnNumber}] {properties[columnNumber - 1].GetColumnName()}"))
-                .Append(" FROM").AppendValues(properties, entities, parameters, wrapInParanthesis: true, useParameterPlaceholders: true)
+                .Append(" FROM").AppendValues(properties, entities, parameters, wrapInParanthesis: true)
                 .Append(") AS ").Append(tableAlias).Append(" ");
             }
 
