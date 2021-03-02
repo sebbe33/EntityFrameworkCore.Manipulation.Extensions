@@ -52,12 +52,19 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 return userDefinedTableTypeName;
             }
 
+            if (!ManipulationExtensionsConfiguration.tvpInterceptors.TryGetValue(entityType.ClrType, out var interceptor))
+            {
+                interceptor = DefaultTableValuedParameterInterceptor.Instance;
+            }
+
             // If the type hasn't been created (at least not by the running instance), then we send an idempotent command to create it.
             var schemaBuilder = new StringBuilder();
 
-            foreach (IProperty property in entityType.GetProperties())
+            var entityProperties = interceptor.InterceptProperties(entityType.GetProperties());
+
+            foreach (IInterceptedProperty property in entityProperties)
             {
-                schemaBuilder.Append(property.GetColumnName()).Append(' ').Append(property.GetColumnType()).Append(',');
+                schemaBuilder.Append(property.ColumnName).Append(' ').Append(property.ColumnType).Append(',');
             }
 
             schemaBuilder.Length--; // remove the last ","

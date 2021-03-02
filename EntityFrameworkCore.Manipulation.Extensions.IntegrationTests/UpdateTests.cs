@@ -228,6 +228,51 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 			context.TestEntitiesWithCompositeKey.Should().BeEquivalentTo(new[] { existingEntities[0], existingEntities[1], expectedUpdatedEntity });
 		}
 
+		[TestMethod]
+		public async Task UpdateAsync_ShouldReturnAffectedUpdatedCollection_WhenASubsetOfEntitiesAreMatchingWithConditionUsingTvpInterceptor()
+		{
+			var existingEntities = Enumerable.Range(0, 52).Select(id => new TestEntityCompositeKey
+			{
+				IdPartA = id.ToString(),
+				IdPartB = "B",
+				IntTestValue = id % 2,
+				BoolTestValue = false,
+				StringTestValue = "short string",
+			}).ToArray();
+			var expectedEntities = Enumerable.Range(0, 52).Select(id => new TestEntityCompositeKey
+			{
+				IdPartA = id.ToString(),
+				IdPartB = "B",
+				IntTestValue = 1,
+				BoolTestValue = true,
+				StringTestValue = "a really long string which is longer than the limit we have on the property",
+			}).ToArray();
+
+			// We're only using Table Valued Parameters in SqlServer
+			using TestDbContext context = await ContextFactory.GetDbContextAsync(DbProvider.SqlServer, seedData: existingEntities);
+
+			// Include bool values - they are the only items expected to be updated based on the mocked data.
+			var inclusionBuilder = new InclusionBuilder<TestEntityCompositeKey>().Include(x => x.BoolTestValue);
+
+			// Invoke the method and check that the result the updated expected entities
+			var result = await context.UpdateAsync(
+				expectedEntities,
+				condition: x => x.Incoming.IntTestValue == x.Current.IntTestValue, // Only update if IntTestValue is equal to the incoming value
+				clusivityBuilder: inclusionBuilder);
+			Assert.AreEqual(expectedEntities.Length / 2, result.Count);
+			Assert.IsTrue(result.All(r => r.BoolTestValue));
+
+			// Validate that the DB is updated
+			context.TestEntitiesWithCompositeKey.Should().BeEquivalentTo(existingEntities.Select(e => new TestEntityCompositeKey
+			{
+				IdPartA = e.IdPartA,
+				IdPartB = e.IdPartB,
+				IntTestValue = e.IntTestValue,
+				BoolTestValue = e.IntTestValue == 1,
+				StringTestValue = e.StringTestValue,
+			}));
+		}
+
 		[DataTestMethod]
 		[DataRow(DbProvider.Sqlite)]
 		[DataRow(DbProvider.SqlServer)]

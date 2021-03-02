@@ -18,6 +18,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 		{
 			var optionsBuilder = new DbContextOptionsBuilder();
 
+			ManipulationExtensionsConfiguration.AddTableValuedParameterInterceptor<TestEntityCompositeKey>(new TestTableValuedParameterInterceptor());
+
 			if (provider == DbProvider.Sqlite)
 			{
 				var sqlConnection = new SqliteConnection("Data Source=:memory:;");

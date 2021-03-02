@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 {
@@ -15,6 +16,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 
         public long LongTestValue { get; set; }
 
+		[Column(TypeName = "nvarchar(25)")]
 		public string StringTestValue { get; set; }
 
 		public DateTime DateTimeTestValue { get; set; }
