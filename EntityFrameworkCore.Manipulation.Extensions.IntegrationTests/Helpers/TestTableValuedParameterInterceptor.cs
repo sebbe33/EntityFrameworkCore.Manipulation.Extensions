@@ -1,27 +1,30 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 {
     internal class TestTableValuedParameterInterceptor : ITableValuedParameterInterceptor
     {
-        private readonly Dictionary<string, string> propertyTypeOverrides = new Dictionary<string, string>
+        public static Action<IEnumerable<IInterceptedProperty>> TestCallback;
+
+        public static readonly Dictionary<string, string> PropertyTypeOverrides = new Dictionary<string, string>
         {
             { nameof(TestEntity.StringTestValue), "nvarchar(100)" }
         };
 
-        public IEnumerable<IInterceptedProperty> InterceptProperties(IEnumerable<IProperty> properties) =>
-            properties.Select(property => new InterceptedProperty
+        public IEnumerable<IInterceptedProperty> OnCreatingProperties(IEnumerable<IProperty> properties)
+        {
+            var interceptedProperties = properties.Select(property => new InterceptedProperty
             {
                 ColumnName = property.GetColumnName(),
-                ColumnType = propertyTypeOverrides.GetValueOrDefault(property.PropertyInfo.Name, property.GetColumnType()),
-            });
+                ColumnType = PropertyTypeOverrides.GetValueOrDefault(property.PropertyInfo.Name, property.GetColumnType()),
+            }).ToList();
+            TestCallback?.Invoke(interceptedProperties);
+            return interceptedProperties;
+        }
 
         private class InterceptedProperty : IInterceptedProperty
         {

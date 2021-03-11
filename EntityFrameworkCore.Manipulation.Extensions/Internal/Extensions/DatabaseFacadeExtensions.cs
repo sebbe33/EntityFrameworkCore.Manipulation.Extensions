@@ -60,7 +60,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             // If the type hasn't been created (at least not by the running instance), then we send an idempotent command to create it.
             var schemaBuilder = new StringBuilder();
 
-            var entityProperties = interceptor.InterceptProperties(entityType.GetProperties());
+            var entityProperties = interceptor.OnCreatingProperties(entityType.GetProperties());
 
             foreach (IInterceptedProperty property in entityProperties)
             {

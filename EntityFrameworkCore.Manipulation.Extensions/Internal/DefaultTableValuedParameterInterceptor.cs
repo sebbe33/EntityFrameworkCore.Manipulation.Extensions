@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
     {
         public static ITableValuedParameterInterceptor Instance = new DefaultTableValuedParameterInterceptor();
 
-        public IEnumerable<IInterceptedProperty> InterceptProperties(IEnumerable<IProperty> properties) =>
+        public IEnumerable<IInterceptedProperty> OnCreatingProperties(IEnumerable<IProperty> properties) =>
             properties.Select(property => new DefaultInterceptedProperty
             {
                 ColumnName = property.GetColumnName(),

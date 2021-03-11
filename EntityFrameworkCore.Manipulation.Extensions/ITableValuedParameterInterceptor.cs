@@ -14,6 +14,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions
         /// </summary>
         /// <param name="properties">Entity properties to process.</param>
         /// <returns>Enumeration of <see cref="IInterceptedProperty"/> to be used for temporary table construction.</returns>
-        IEnumerable<IInterceptedProperty> InterceptProperties(IEnumerable<IProperty> properties);
+        IEnumerable<IInterceptedProperty> OnCreatingProperties(IEnumerable<IProperty> properties);
     }
 }

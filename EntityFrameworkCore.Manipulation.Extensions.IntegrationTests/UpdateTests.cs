@@ -245,8 +245,13 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 				IdPartB = "B",
 				IntTestValue = 1,
 				BoolTestValue = true,
+				// The string field has a max length of 25 chars set with an attribute.
+				// We're extending the max length with the TvpInterceptor by changing the type it will have in the temporary table.
 				StringTestValue = "a really long string which is longer than the limit we have on the property",
 			}).ToArray();
+
+			var interceptedProperties = new List<IInterceptedProperty>();
+			TestTableValuedParameterInterceptor.TestCallback = (properties) => interceptedProperties.AddRange(properties);
 
 			// We're only using Table Valued Parameters in SqlServer
 			using TestDbContext context = await ContextFactory.GetDbContextAsync(DbProvider.SqlServer, seedData: existingEntities);
@@ -271,6 +276,13 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 				BoolTestValue = e.IntTestValue == 1,
 				StringTestValue = e.StringTestValue,
 			}));
+
+			// Validate the TvpInterceptor has been called and what it returned
+			foreach (var propertyKvp in TestTableValuedParameterInterceptor.PropertyTypeOverrides)
+			{
+				Assert.AreEqual(1, interceptedProperties.Count(p => p.ColumnName == propertyKvp.Key && p.ColumnType == propertyKvp.Value));
+			}
+			Assert.AreEqual(typeof(TestEntityCompositeKey).GetProperties().Length, interceptedProperties.Count);
 		}
 
 		[DataTestMethod]
