@@ -1,0 +1,32 @@
+name: Build, Test, and Pack
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.x
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore
+    - name: Test
+      env:
+        INTEGRATION_TEST_SQL_SERVER: entityframeworkcore-manipulation-extensions.database.windows.net
+        INTEGRATION_TEST_SQL_SERVER_DB: entityframeworkcore-manipulation-extensions-integration-testing
+        INTEGRATION_TEST_SQL_SERVER_DB_USER: ${{ secrets.INTEGRATION_TEST_SQL_SERVER_DB_USER }}
+        INTEGRATION_TEST_SQL_SERVER_DB_PASSWORD: ${{ secrets.INTEGRATION_TEST_SQL_SERVER_DB_PASSWORD }}
+      run: dotnet test --no-build --verbosity normal
+    - name: Pack
+      run: dotnet pack
