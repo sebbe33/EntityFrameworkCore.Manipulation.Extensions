@@ -28,3 +28,5 @@ jobs:
         INTEGRATION_TEST_SQL_SERVER_DB_USER: ${{ secrets.INTEGRATION_TEST_SQL_SERVER_DB_USER }}
         INTEGRATION_TEST_SQL_SERVER_DB_PASSWORD: ${{ secrets.INTEGRATION_TEST_SQL_SERVER_DB_PASSWORD }}
       run: dotnet test --no-build --verbosity normal
+    - name: Pack
+      run: dotnet pack
