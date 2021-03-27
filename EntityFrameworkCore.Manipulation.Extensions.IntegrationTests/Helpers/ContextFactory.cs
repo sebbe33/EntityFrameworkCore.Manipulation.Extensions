@@ -1,5 +1,6 @@
 ﻿using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Threading.Tasks;
@@ -20,22 +21,52 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 
 			ManipulationExtensionsConfiguration.AddTableValuedParameterInterceptor<TestEntityCompositeKey>(new TestTableValuedParameterInterceptor());
 
+			TestDbContext context = null;
+
 			if (provider == DbProvider.Sqlite)
 			{
 				var sqlConnection = new SqliteConnection("Data Source=:memory:;");
 				await sqlConnection.OpenAsync();
 				optionsBuilder.UseSqlite(sqlConnection).EnableSensitiveDataLogging(true);
+
+				context = new TestDbContext(optionsBuilder.Options);
 			}
 			else
 			{
-				var sqlConnection = new SqlConnection("Data Source=localhost\\SQLEXPRESS;Initial Catalog=Test;Integrated Security=True;");
+				var sqlUser = Environment.GetEnvironmentVariable("INTEGRATION_TEST_SQL_SERVER_DB_USER");
+				var sqlPassword = Environment.GetEnvironmentVariable("INTEGRATION_TEST_SQL_SERVER_DB_PASSWORD");
+				var sqlServer = Environment.GetEnvironmentVariable("INTEGRATION_TEST_SQL_SERVER");
+				var sqldb = Environment.GetEnvironmentVariable("INTEGRATION_TEST_SQL_SERVER_DB");
+
+				var connectionStringBuilder = new SqlConnectionStringBuilder
+				{
+					DataSource = string.IsNullOrWhiteSpace(sqlServer) ? @"localhost\SQLEXPRESS" : sqlServer,
+					InitialCatalog = string.IsNullOrWhiteSpace(sqldb) ? @"entityframeworkcore-manipulation-extensions-integration-testing" : sqldb,
+				};
+
+				if (string.IsNullOrWhiteSpace(sqlUser) || string.IsNullOrWhiteSpace(sqlUser))
+                {
+					connectionStringBuilder.IntegratedSecurity = true;
+				}
+				else
+                {
+					connectionStringBuilder.UserID = sqlUser;
+					connectionStringBuilder.Password = sqlPassword;
+                }
+
+				var sqlConnection = new SqlConnection(connectionStringBuilder.ConnectionString);
 				await sqlConnection.OpenAsync();
 				optionsBuilder.UseSqlServer(sqlConnection).EnableSensitiveDataLogging(true);
 
-				// Clear the DB
-				var command = sqlConnection.CreateCommand();
-				command.CommandText = "DELETE FROM TestEntities; DELETE FROM TestEntitiesWithCompositeKey;";
-				await command.ExecuteNonQueryAsync();
+				context = new TestDbContext(optionsBuilder.Options);
+
+				if (!await context.Database.EnsureCreatedAsync())
+                {
+					// Clear the DB
+					var command = sqlConnection.CreateCommand();
+					command.CommandText = "DELETE FROM TestEntities; DELETE FROM TestEntitiesWithCompositeKey;";
+					await command.ExecuteNonQueryAsync();
+				}
 			}
 			
 			if (seedData != null)
@@ -46,7 +77,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 				await seedContext.SaveChangesAsync();
 			}
 
-			return new TestDbContext(optionsBuilder.Options);
+			return context;
 		}
 	}
 }
