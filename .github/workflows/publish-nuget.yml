@@ -1,0 +1,20 @@
+# This is a workflow that publishes the the lib as a new version on nuget.org
+
+name: Publish Nuget Package
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Publish NuGet
+        uses: brandedoutcast/publish-nuget@v2.5.5
+        with:
+          PROJECT_FILE_PATH: EntityFrameworkCore.Manipulation.Extensions/EntityFrameworkCore.Manipulation.Extensions.csproj
+          TAG_FORMAT: '*'
+          NUGET_KEY: ${{secrets.NUGET_API_KEY}}
