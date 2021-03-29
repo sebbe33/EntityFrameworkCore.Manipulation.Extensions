@@ -1,7 +1,7 @@
-﻿using System.Collections.Generic;
-
-namespace EntityFrameworkCore.Manipulation.Extensions.Internal
+﻿namespace EntityFrameworkCore.Manipulation.Extensions.Internal
 {
+    using System.Collections.Generic;
+
     internal class SyncResult<TEntity> : ISyncResult<TEntity>, ISyncWithoutUpdateResult<TEntity>, IUpsertResult<TEntity>
         where TEntity : class
     {

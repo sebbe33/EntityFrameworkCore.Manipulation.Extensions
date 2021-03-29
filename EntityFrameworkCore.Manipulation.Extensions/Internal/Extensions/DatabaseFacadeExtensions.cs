@@ -1,17 +1,17 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Storage;
-using System;
-using System.Collections.Concurrent;
-using System.Data.SqlClient;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
+﻿namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 {
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.EntityFrameworkCore.Diagnostics;
+    using Microsoft.EntityFrameworkCore.Infrastructure;
+    using Microsoft.EntityFrameworkCore.Metadata;
+    using Microsoft.EntityFrameworkCore.Storage;
+    using System;
+    using System.Collections.Concurrent;
+    using System.Data.SqlClient;
+    using System.Text;
+    using System.Threading;
+    using System.Threading.Tasks;
+
     public static class DatabaseFacadeExtensions
     {
         private static readonly ConcurrentDictionary<(string DatabaseName, string EntityTableName), string> userDefinedTableTypeCache
@@ -19,15 +19,15 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
         public static Task<RelationalDataReader> ExecuteSqlQueryAsync(this DatabaseFacade databaseFacade, string sql, object[] parameters, CancellationToken cancellationToken)
         {
-            var concurrencyDetector = databaseFacade.GetService<IConcurrencyDetector>();
+            IConcurrencyDetector concurrencyDetector = databaseFacade.GetService<IConcurrencyDetector>();
 
             using (concurrencyDetector.EnterCriticalSection())
             {
-                var rawSqlCommand = databaseFacade
+                RawSqlCommand rawSqlCommand = databaseFacade
                     .GetService<IRawSqlCommandBuilder>()
                     .Build(sql, parameters);
 
-                var diagnosticsLogger = databaseFacade.GetService<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
+                IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnosticsLogger = databaseFacade.GetService<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
 
                 var paramObject = new RelationalCommandParameterObject(databaseFacade.GetService<IRelationalConnection>(), rawSqlCommand.ParameterValues, null, null, diagnosticsLogger);
 
@@ -38,21 +38,20 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
         public static async Task<string> CreateUserDefinedTableTypeIfNotExistsAsync(this DatabaseFacade databaseFacade, IEntityType entityType, CancellationToken cancellationToken)
         {
             var stringBuilder = new StringBuilder();
-            var entityTableName = entityType.GetTableName();
+            string entityTableName = entityType.GetTableName();
 
             var connectionInfo = new SqlConnectionStringBuilder(databaseFacade.GetDbConnection().ConnectionString
                 ?? throw new InvalidOperationException("No connection string was specified for the connection to the database."));
-            var fullyQualifiedDatabaseName = connectionInfo.DataSource + connectionInfo.InitialCatalog;
+            string fullyQualifiedDatabaseName = connectionInfo.DataSource + connectionInfo.InitialCatalog;
 
-            string userDefinedTableTypeName;
 
             // Check if the type has already been successfully created in the current database. If so, we don't need to generate the command to create the type.
-            if (userDefinedTableTypeCache.TryGetValue((fullyQualifiedDatabaseName, entityTableName), out userDefinedTableTypeName))
+            if (userDefinedTableTypeCache.TryGetValue((fullyQualifiedDatabaseName, entityTableName), out string userDefinedTableTypeName))
             {
                 return userDefinedTableTypeName;
             }
 
-            if (!ManipulationExtensionsConfiguration.tvpInterceptors.TryGetValue(entityType.ClrType, out var interceptor))
+            if (!ManipulationExtensionsConfiguration.TvpInterceptors.TryGetValue(entityType.ClrType, out ITableValuedParameterInterceptor interceptor))
             {
                 interceptor = DefaultTableValuedParameterInterceptor.Instance;
             }
@@ -60,7 +59,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             // If the type hasn't been created (at least not by the running instance), then we send an idempotent command to create it.
             var schemaBuilder = new StringBuilder();
 
-            var entityProperties = interceptor.OnCreatingProperties(entityType.GetProperties());
+            System.Collections.Generic.IEnumerable<IInterceptedProperty> entityProperties = interceptor.OnCreatingProperties(entityType.GetProperties());
 
             foreach (IInterceptedProperty property in entityProperties)
             {
@@ -69,11 +68,11 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
             schemaBuilder.Length--; // remove the last ","
 
-            var schema = schemaBuilder.ToString();
-            var schemaHash = schema.GetDeterministicStringHash();
+            string schema = schemaBuilder.ToString();
+            string schemaHash = schema.GetDeterministicStringHash();
             userDefinedTableTypeName = $"{entityTableName}_{schemaHash}";
 
-			var typeIdClause = $"TYPE_ID('{userDefinedTableTypeName}')";
+            string typeIdClause = $"TYPE_ID('{userDefinedTableTypeName}')";
 
             stringBuilder
                 .AppendLine("BEGIN TRANSACTION;")
@@ -81,32 +80,32 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 .Append("CREATE TYPE ").Append(userDefinedTableTypeName).AppendLine(" AS TABLE")
                 .Append("( ").Append(schema).AppendLine(" );")
                 .Append("COMMIT;");
-			try
-			{
-				await databaseFacade.ExecuteSqlRawAsync(stringBuilder.ToString(), cancellationToken);
-			}
-			catch (SqlException e) when (e.Message?.Contains("already exists") == true)
-			{
-				// Check if the type already exists
-				var doesExist = false;
-				using var reader = await databaseFacade.ExecuteSqlQueryAsync($"SELECT TYPE_NAME({typeIdClause}) AS UserDefinedTypeId", new object[0], cancellationToken);
-				while (await reader.ReadAsync(cancellationToken))
-				{
-					if (!reader.DbDataReader.IsDBNull(0))
-					{
-						doesExist = true;
-					}
-				}
+            try
+            {
+                await databaseFacade.ExecuteSqlRawAsync(stringBuilder.ToString(), cancellationToken);
+            }
+            catch (SqlException e) when (e.Message?.Contains("already exists") == true)
+            {
+                // Check if the type already exists
+                bool doesExist = false;
+                using RelationalDataReader reader = await databaseFacade.ExecuteSqlQueryAsync($"SELECT TYPE_NAME({typeIdClause}) AS UserDefinedTypeId", new object[0], cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    if (!reader.DbDataReader.IsDBNull(0))
+                    {
+                        doesExist = true;
+                    }
+                }
 
-				if (!doesExist)
-				{
-					throw;
-				}
-			}
+                if (!doesExist)
+                {
+                    throw;
+                }
+            }
 
 
-			// Cache that the type now exists
-			userDefinedTableTypeCache.TryAdd((fullyQualifiedDatabaseName, entityTableName), userDefinedTableTypeName);
+            // Cache that the type now exists
+            userDefinedTableTypeCache.TryAdd((fullyQualifiedDatabaseName, entityTableName), userDefinedTableTypeName);
             return userDefinedTableTypeName;
         }
     }

@@ -1,10 +1,10 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-
-namespace EntityFrameworkCore.Manipulation.Extensions.Internal
+﻿namespace EntityFrameworkCore.Manipulation.Extensions.Internal
 {
+    using System.Collections.Generic;
+    using System.Linq;
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.EntityFrameworkCore.Metadata;
+
     internal class DefaultTableValuedParameterInterceptor : ITableValuedParameterInterceptor
     {
         public static ITableValuedParameterInterceptor Instance = new DefaultTableValuedParameterInterceptor();

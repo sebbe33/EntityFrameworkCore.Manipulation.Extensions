@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
-
-namespace EntityFrameworkCore.Manipulation.Extensions
+﻿namespace EntityFrameworkCore.Manipulation.Extensions
 {
-    public interface ISyncResult<TEntity> 
+    using System.Collections.Generic;
+
+    public interface ISyncResult<TEntity>
         where TEntity : class
     {
         IReadOnlyCollection<TEntity> DeletedEntities { get; }

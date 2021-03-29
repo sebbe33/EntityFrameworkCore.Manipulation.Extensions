@@ -1,8 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata;
-using System.Collections.Generic;
-
-namespace EntityFrameworkCore.Manipulation.Extensions.Internal
+﻿namespace EntityFrameworkCore.Manipulation.Extensions.Internal
 {
+    using Microsoft.EntityFrameworkCore.Metadata;
+    using System.Collections.Generic;
+
     public static class ConfigUtils
     {
         private const int TVPNumberOfRowsThreshold = 50;

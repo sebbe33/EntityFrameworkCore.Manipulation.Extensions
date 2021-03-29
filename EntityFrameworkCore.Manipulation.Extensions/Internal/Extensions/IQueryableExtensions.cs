@@ -1,24 +1,24 @@
-﻿using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.Internal;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Data.SqlClient;
-using System.Linq;
-using System.Reflection;
-
-namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
+﻿namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 {
+    using Microsoft.EntityFrameworkCore.Query;
+    using Microsoft.EntityFrameworkCore.Query.Internal;
+    using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+    using Microsoft.EntityFrameworkCore.Storage;
+    using System;
+    using System.Collections;
+    using System.Collections.Generic;
+    using System.Collections.ObjectModel;
+    using System.Data.SqlClient;
+    using System.Linq;
+    using System.Reflection;
+
     internal static class IQueryableExtensions
     {
         public static (string CommantText, IReadOnlyCollection<SqlParameter> Parameters) ToSqlCommand<TEntity>(this IQueryable<TEntity> query, bool filterCollapsedP0Param = false)
             where TEntity : class
         {
             IEnumerator<TEntity> enumerator = query.Provider.Execute<IEnumerable<TEntity>>(query.Expression).GetEnumerator();
-            RelationalCommandCache relationalCommandCache = enumerator.Private("_relationalCommandCache") as RelationalCommandCache;
+            var relationalCommandCache = enumerator.Private("_relationalCommandCache") as RelationalCommandCache;
             RelationalQueryContext queryContext = enumerator.Private<RelationalQueryContext>("_relationalQueryContext");
             IReadOnlyDictionary<string, object> parameterValues = queryContext.ParameterValues;
 
@@ -40,10 +40,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 command = sqlGenerator.GetCommand(selectExpression);
             }
 
-            var sqlParams = command.Parameters
-				.Where(param => !filterCollapsedP0Param || param.InvariantName == "@__p_0")
-				.Select(param => new SqlParameter($"@{param.InvariantName}", parameterValues[param.InvariantName]))
-				.ToArray();
+            SqlParameter[] sqlParams = command.Parameters
+                .Where(param => !filterCollapsedP0Param || param.InvariantName == "@__p_0")
+                .Select(param => new SqlParameter($"@{param.InvariantName}", parameterValues[param.InvariantName]))
+                .ToArray();
 
             return (command.CommandText, sqlParams);
         }

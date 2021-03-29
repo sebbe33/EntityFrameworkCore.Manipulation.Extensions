@@ -1,7 +1,7 @@
-﻿using System.Collections.Generic;
-
-namespace EntityFrameworkCore.Manipulation.Extensions
+﻿namespace EntityFrameworkCore.Manipulation.Extensions
 {
+    using System.Collections.Generic;
+
     public interface ISyncWithoutUpdateResult<TEntity>
         where TEntity : class
     {

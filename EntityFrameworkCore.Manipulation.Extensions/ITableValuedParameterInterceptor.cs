@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore.Metadata;
-
-namespace EntityFrameworkCore.Manipulation.Extensions
+﻿namespace EntityFrameworkCore.Manipulation.Extensions
 {
+    using System.Collections.Generic;
+    using Microsoft.EntityFrameworkCore.Metadata;
+
     /// <summary>
     /// An interceptor which allows customizing the configuration of a table valued paramter table.
     /// </summary>
