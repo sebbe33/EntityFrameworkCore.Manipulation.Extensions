@@ -1,16 +1,16 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Data;
-using System.Data.SqlClient;
-using System.Data.SqlTypes;
-using System.Linq;
-using System.Text;
-
-namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
+﻿namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 {
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.EntityFrameworkCore.Metadata;
+    using System;
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Data;
+    using System.Data.SqlClient;
+    using System.Data.SqlTypes;
+    using System.Linq;
+    using System.Text;
+
     internal static class SqlCommandBuilderExtensions
     {
         public static StringBuilder AppendColumnNames(
@@ -28,8 +28,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             return stringBuilder
                 .AppendJoin(',', properties.Select(property =>
                 {
-                    var columnName = property.GetColumnName();
-                    var column = identifierPrefix != null ? $"{identifierPrefix}.{columnName}" : columnName;
+                    string columnName = property.GetColumnName();
+                    string column = identifierPrefix != null ? $"{identifierPrefix}.{columnName}" : columnName;
                     return aliaser != null ? $"{column} AS {aliaser(columnName)}" : column;
                 }))
                 .Append(wrapInParanthesis ? ") " : " ");
@@ -51,16 +51,16 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             foreach (TEntity entity in entities)
             {
                 stringBuilder.Append(" (");
-				foreach (IProperty property in properties)
-				{
-					// for each column value, create a placeholder, e.g. "{3}" used for the parameter
-					stringBuilder.Append("{").Append(parameters.Count).Append("},");
+                foreach (IProperty property in properties)
+                {
+                    // for each column value, create a placeholder, e.g. "{3}" used for the parameter
+                    stringBuilder.Append("{").Append(parameters.Count).Append("},");
 
-					// then add the actual value to the list of parameters
-					parameters.Add(property.PropertyInfo.GetValue(entity));
-				}
+                    // then add the actual value to the list of parameters
+                    parameters.Add(property.PropertyInfo.GetValue(entity));
+                }
 
-				stringBuilder.Length--; // remove the last ","
+                stringBuilder.Length--; // remove the last ","
                 stringBuilder.Append("),");
             }
 
@@ -94,7 +94,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
         public static StringBuilder AppendJoinCondition(this StringBuilder stringBuilder, IKey key, string leftTableAlias = "source", string rightTableAlias = "target")
         {
             const string andOperator = " AND ";
-            foreach (var keyProperty in key.Properties)
+            foreach (IProperty keyProperty in key.Properties)
             {
                 stringBuilder.Append(leftTableAlias).Append('.').Append(keyProperty.Name).Append('=').Append(rightTableAlias).Append('.').Append(keyProperty.Name)
                              .Append(andOperator);
@@ -105,10 +105,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
         }
 
         public static StringBuilder AppendTableValuedParameter<TEntity>(
-            this StringBuilder stringBuilder, 
+            this StringBuilder stringBuilder,
             string userDefinedTableTypeName,
-            IProperty[] properties, 
-            IEnumerable<TEntity> entities, 
+            IProperty[] properties,
+            IEnumerable<TEntity> entities,
             IList<object> parameters)
         {
             var dataTable = new DataTable();
@@ -116,7 +116,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             // Add the columns
             foreach (IProperty property in properties)
             {
-                var columnType = property.PropertyInfo.PropertyType;
+                Type columnType = property.PropertyInfo.PropertyType;
                 columnType = Nullable.GetUnderlyingType(columnType) ?? columnType;
 
                 // For some reason, a datatable with an enum types throws unsupported column exceptions, so we'll convert it to an int.
@@ -131,7 +131,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             // Add the entities as rows
             foreach (TEntity entity in entities)
             {
-                var row = new object[properties.Length];
+                object[] row = new object[properties.Length];
 
                 for (int i = 0; i < properties.Length; i++)
                 {

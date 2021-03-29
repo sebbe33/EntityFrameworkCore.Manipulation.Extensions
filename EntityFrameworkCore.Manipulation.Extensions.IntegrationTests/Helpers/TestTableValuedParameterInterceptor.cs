@@ -1,11 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-
-namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
+﻿namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.EntityFrameworkCore.Metadata;
+
     internal class TestTableValuedParameterInterceptor : ITableValuedParameterInterceptor
     {
         public static Action<IEnumerable<IInterceptedProperty>> TestCallback;

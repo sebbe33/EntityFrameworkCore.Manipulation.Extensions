@@ -1,8 +1,8 @@
-﻿using System.Security.Cryptography;
-using System.Text;
-
-namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
+﻿namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 {
+    using System.Security.Cryptography;
+    using System.Text;
+
     public static class StringExtensions
     {
         public static string GetDeterministicStringHash(this string subject)
@@ -10,8 +10,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             using var hashingScheme = SHA1.Create();
             byte[] bytes = hashingScheme.ComputeHash(Encoding.UTF8.GetBytes(subject));
 
-            StringBuilder builder = new StringBuilder(40);
-            foreach (var b in bytes)
+            var builder = new StringBuilder(40);
+            foreach (byte b in bytes)
             {
                 builder.Append(b.ToString("x2"));
             }

@@ -1,33 +1,33 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-
-namespace EntityFrameworkCore.Manipulation.Extensions.Internal
+﻿namespace EntityFrameworkCore.Manipulation.Extensions.Internal
 {
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.EntityFrameworkCore.Metadata;
+    using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+    using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Linq.Expressions;
+
     internal static class EntityUtils
     {
-		public static IEnumerable<IProperty> GetPropertiesFromExpressions<TEntity>(this IEnumerable<Expression<Func<TEntity, object>>> propertyExpressions, IEnumerable<IProperty> availableProperties)
-		{
-			var propertyInfos = propertyExpressions.Select(x => x.GetPropertyInfoFromExpression()).ToList();
-			return propertyInfos.Select(propertyInfo => availableProperties.FirstOrDefault(property => property.PropertyInfo.Equals(propertyInfo))
-				?? throw new ArgumentException($"The property {propertyInfo.Name} could not be found in the DB schema"));
-		}
+        public static IEnumerable<IProperty> GetPropertiesFromExpressions<TEntity>(this IEnumerable<Expression<Func<TEntity, object>>> propertyExpressions, IEnumerable<IProperty> availableProperties)
+        {
+            var propertyInfos = propertyExpressions.Select(x => x.GetPropertyInfoFromExpression()).ToList();
+            return propertyInfos.Select(propertyInfo => availableProperties.FirstOrDefault(property => property.PropertyInfo.Equals(propertyInfo))
+                ?? throw new ArgumentException($"The property {propertyInfo.Name} could not be found in the DB schema"));
+        }
 
-		public static IEnumerable<IProperty> GetPropertiesFromPropertyNames(this IEnumerable<string> propertyNames, IEnumerable<IProperty> availableProperties)
-		{
-			return propertyNames.Select(propertyName => availableProperties.FirstOrDefault(property => string.Equals(propertyName, property.PropertyInfo.Name, StringComparison.Ordinal))
-				?? throw new ArgumentException($"The property {propertyName} could not be found in the DB schema"));
-		}
+        public static IEnumerable<IProperty> GetPropertiesFromPropertyNames(this IEnumerable<string> propertyNames, IEnumerable<IProperty> availableProperties)
+        {
+            return propertyNames.Select(propertyName => availableProperties.FirstOrDefault(property => string.Equals(propertyName, property.PropertyInfo.Name, StringComparison.Ordinal))
+                ?? throw new ArgumentException($"The property {propertyName} could not be found in the DB schema"));
+        }
 
-		public static TEntity FindEntityBasedOnKey<TEntity>(IEnumerable<TEntity> entities, IKey key, object[] keyPropertyValues, Func<object, object>[] keyValueConverters = null)
+        public static TEntity FindEntityBasedOnKey<TEntity>(IEnumerable<TEntity> entities, IKey key, object[] keyPropertyValues, Func<object, object>[] keyValueConverters = null)
             where TEntity : class
         {
-            foreach (var entity in entities)
+            foreach (TEntity entity in entities)
             {
                 if (EqualBasedOnKey(entity, key, keyPropertyValues, keyValueConverters))
                 {
@@ -41,14 +41,14 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
         public static bool EqualBasedOnKey<TEntity>(TEntity entity, IKey key, object[] keyPropertyValues, Func<object, object>[] keyValueConverters = null)
             where TEntity : class
         {
-            for (var i = 0; i < key.Properties.Count; i++)
+            for (int i = 0; i < key.Properties.Count; i++)
             {
                 object propertyValue = key.Properties[i].PropertyInfo.GetValue(entity);
-				object keyValue = keyPropertyValues[i];
+                object keyValue = keyPropertyValues[i];
 
-				if (keyValueConverters != null)
+                if (keyValueConverters != null)
                 {
-					keyValue = keyValueConverters[i](keyValue);
+                    keyValue = keyValueConverters[i](keyValue);
                 }
 
                 if (propertyValue != keyPropertyValues[i] && propertyValue?.Equals(keyValue) != true)
@@ -64,9 +64,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
             where TEntity : class, new()
         {
             var entity = new TEntity();
-            for (var i = 0; i < properties.Length; i++)
+            for (int i = 0; i < properties.Length; i++)
             {
-                var valueConverter = properties[i].GetValueConverter()?.ConvertFromProvider;
+                Func<object, object> valueConverter = properties[i].GetValueConverter()?.ConvertFromProvider;
                 object rawValue = row[i + offset] is DBNull ? null : row[i + offset];
 
                 if (propertyValueConverters != null)
@@ -100,7 +100,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
         {
             var converters = new Func<object, object>[properties.Length];
 
-            for (var i = 0; i < properties.Length; i++)
+            for (int i = 0; i < properties.Length; i++)
             {
                 ValueConverter valueConverter = properties[i].GetValueConverter();
 
@@ -110,8 +110,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
                     continue;
                 }
 
-                var targetType = properties[i].PropertyInfo.PropertyType;
-                var nullableUnderlyingType = Nullable.GetUnderlyingType(targetType);
+                Type targetType = properties[i].PropertyInfo.PropertyType;
+                Type nullableUnderlyingType = Nullable.GetUnderlyingType(targetType);
                 if (nullableUnderlyingType != default)
                 {
                     targetType = nullableUnderlyingType;
@@ -121,7 +121,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
                 {
                     converters[i] = (rawValue) =>
                     {
-                        var convertedValue = rawValue = rawValue is string enumValue
+                        object convertedValue = rawValue = rawValue is string enumValue
                             ? Enum.Parse(targetType, enumValue, true)
                             : Convert.ChangeType(rawValue, targetType.GetEnumUnderlyingType());
 
@@ -153,7 +153,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal
                 // It's a nullable type and we have to account for DB nulls
                 if (nullableUnderlyingType != default)
                 {
-                    var valueTypeConverter = converters[i];
+                    Func<object, object> valueTypeConverter = converters[i];
                     converters[i] = rawValue => rawValue == null ? null : valueTypeConverter(rawValue);
                 }
             }

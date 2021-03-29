@@ -1,8 +1,8 @@
-﻿using System;
-using System.ComponentModel.DataAnnotations;
-
-namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
+﻿namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 {
+    using System;
+    using System.ComponentModel.DataAnnotations;
+
     public class TestEntity
     {
         [Key]
@@ -18,14 +18,14 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 
         public DateTime DateTimeTestValue { get; set; }
 
-		public DateTime? NullableDateTimeTestValue { get; set; }
+        public DateTime? NullableDateTimeTestValue { get; set; }
 
-		public Guid GuidValue { get; set; }
+        public Guid GuidValue { get; set; }
 
-		public Guid? NullableGuidValue { get; set; }
+        public Guid? NullableGuidValue { get; set; }
 
-		public TestEnum EnumValue { get; set; }
+        public TestEnum EnumValue { get; set; }
 
-		// public TestEnum? NullableEnumValue { get; set; }
-	}
+        // public TestEnum? NullableEnumValue { get; set; }
+    }
 }

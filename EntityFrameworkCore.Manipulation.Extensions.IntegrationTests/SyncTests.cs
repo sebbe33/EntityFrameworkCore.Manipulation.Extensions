@@ -1,35 +1,35 @@
-﻿using EntityFrameworkCore.Manipulation.Extensions;
-using EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers;
-using FluentAssertions;
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
-using System.Collections.Generic;
-using System.Data.SqlClient;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
+﻿namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 {
+    using EntityFrameworkCore.Manipulation.Extensions;
+    using EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers;
+    using FluentAssertions;
+    using Microsoft.Data.Sqlite;
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.VisualStudio.TestTools.UnitTesting;
+    using System;
+    using System.Collections.Generic;
+    using System.Data.SqlClient;
+    using System.Linq;
+    using System.Threading.Tasks;
+
     [TestClass]
     public class SyncTests
     {
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncAsync_ShouldInsertAndReturnEntities_WhenNoEntitiesExist(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncAsync_ShouldInsertAndReturnEntities_WhenNoEntitiesExist(DbProvider provider)
         {
-            using var context = await ContextFactory.GetDbContextAsync(provider, seedData: null); // Note: no seed data => no entities exist
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: null); // Note: no seed data => no entities exist
 
-            var expectedEntitiesToBeInserted = new[]
+            TestEntity[] expectedEntitiesToBeInserted = new[]
             {
                 new TestEntity { Id = "2", IntTestValue = 222, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 15451455587546 },
                 new TestEntity { Id = "3", IntTestValue = 333, BoolTestValue = false, DateTimeTestValue = new DateTime(15645325746541), LongTestValue = 7451524264 },
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncAsync(context.TestEntities, expectedEntitiesToBeInserted);
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities, expectedEntitiesToBeInserted);
 
             result.DeletedEntities.Should().BeEmpty();
             result.UpdatedEntities.Should().BeEmpty();
@@ -40,28 +40,28 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncAsync_ShouldInsertAndReturnEntities_WhenNoMatchingEntitiesExistInTarget(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncAsync_ShouldInsertAndReturnEntities_WhenNoMatchingEntitiesExistInTarget(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
 {
                 new TestEntity { Id = "1", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "4", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
 
-            var expectedEntitiesToBeInserted = new[]
+            TestEntity[] expectedEntitiesToBeInserted = new[]
             {
                 new TestEntity { Id = "2", IntTestValue = 222, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 15451455587546 },
                 new TestEntity { Id = "3", IntTestValue = 333, BoolTestValue = false, DateTimeTestValue = new DateTime(15645325746541), LongTestValue = 7451524264 },
             };
 
             // Invoke the method, excluding the existing entities, and check that the result is the expected entities
-            var existingEntityIds = existingEntities.Select(e => e.Id).ToArray();
-			var existingEntityIds1 = expectedEntitiesToBeInserted.Select(e => e.Id).ToArray();
-			var result = await context.SyncAsync(context.TestEntities.Where(e => !existingEntityIds.Contains(e.Id)), expectedEntitiesToBeInserted);
+            string[] existingEntityIds = existingEntities.Select(e => e.Id).ToArray();
+            string[] existingEntityIds1 = expectedEntitiesToBeInserted.Select(e => e.Id).ToArray();
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities.Where(e => !existingEntityIds.Contains(e.Id)), expectedEntitiesToBeInserted);
 
             result.DeletedEntities.Should().BeEmpty();
             result.UpdatedEntities.Should().BeEmpty();
@@ -72,26 +72,26 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncAsync_ShouldUpdateAndReturnEntities_WhenTargetIsEntireTable(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncAsync_ShouldUpdateAndReturnEntities_WhenTargetIsEntireTable(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
 {
                 new TestEntity { Id = "1", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "4", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
 
-            var expectedEntitiesToBeUpdated = new[]
+            TestEntity[] expectedEntitiesToBeUpdated = new[]
             {
                 new TestEntity { Id = "1", IntTestValue = 1111, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 8912308 },
                 new TestEntity { Id = "4", IntTestValue = 4444, BoolTestValue = true, DateTimeTestValue = new DateTime(56154651231654), LongTestValue = 23135123 },
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncAsync(context.TestEntities, expectedEntitiesToBeUpdated);
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities, expectedEntitiesToBeUpdated);
 
             result.DeletedEntities.Should().BeEmpty();
             result.InsertedEntities.Should().BeEmpty();
@@ -102,27 +102,27 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncAsync_ShouldUpdateAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncAsync_ShouldUpdateAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
 {
                 new TestEntity { Id = "1", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "4", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "ExcludedEntity1", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "ExcludedEntity2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-            var expectedEntitiesToBeUpdated = new[]
+            TestEntity[] expectedEntitiesToBeUpdated = new[]
             {
                 new TestEntity { Id = "1", IntTestValue = 1111, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 8912308 },
                 new TestEntity { Id = "4", IntTestValue = 4444, BoolTestValue = true, DateTimeTestValue = new DateTime(56154651231654), LongTestValue = 23135123 },
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesToBeUpdated);
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesToBeUpdated);
 
             result.DeletedEntities.Should().BeEmpty();
             result.InsertedEntities.Should().BeEmpty();
@@ -134,20 +134,20 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		[Ignore("Need to fix this case")]
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        [Ignore("Need to fix this case")]
         public async Task SyncAsync_ShouldDeleteAndReturnEntireSource_WhenSourceIsEmpty(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
 {
                 new TestEntity { Id = "1", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "4", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncAsync(context.TestEntities, new TestEntity[0]);
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities, new TestEntity[0]);
 
             result.DeletedEntities.Should().BeEquivalentTo(existingEntities);
             result.InsertedEntities.Should().BeEmpty();
@@ -158,24 +158,24 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncAsync_ShouldDeleteAndUpdateAndReturnEntities_WhenTargetIsEntireTable(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncAsync_ShouldDeleteAndUpdateAndReturnEntities_WhenTargetIsEntireTable(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
 {
                 new TestEntity { Id = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "TO BE UPDATED", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-            var expectedEntitiesAfterSync = new[]
+            TestEntity[] expectedEntitiesAfterSync = new[]
             {
                 new TestEntity { Id = "TO BE UPDATED", IntTestValue = 4444, BoolTestValue = true, DateTimeTestValue = new DateTime(56154651231654), LongTestValue = 23135123 },
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncAsync(context.TestEntities, expectedEntitiesAfterSync);
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities, expectedEntitiesAfterSync);
 
             result.DeletedEntities.Should().BeEquivalentTo(existingEntities.Take(1));
             result.InsertedEntities.Should().BeEmpty();
@@ -186,26 +186,26 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncAsync_ShouldDeleteAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncAsync_ShouldDeleteAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
             {
                 new TestEntity { Id = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "ExcludedEntity1", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "TO BE UPDATED", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "ExcludedEntity2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-            var expectedEntitiesInTargetAfterSync = new[]
+            TestEntity[] expectedEntitiesInTargetAfterSync = new[]
             {
                 new TestEntity { Id = "TO BE UPDATED", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesInTargetAfterSync);
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesInTargetAfterSync);
 
             result.DeletedEntities.Should().BeEquivalentTo(existingEntities.Take(1));
             result.InsertedEntities.Should().BeEmpty();
@@ -216,25 +216,25 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
             {
                 new TestEntity { Id = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165, NullableGuidValue = Guid.NewGuid() },
                 new TestEntity { Id = "TO BE DELETED2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-            var expectedEntitiesInTargetAfterSync = new[]
+            TestEntity[] expectedEntitiesInTargetAfterSync = new[]
             {
                 new TestEntity { Id = "TO BE INSERTED 1", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
                 new TestEntity { Id = "TO BE INSERTED 2", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354 },
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncAsync(context.TestEntities, expectedEntitiesInTargetAfterSync);
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities, expectedEntitiesInTargetAfterSync);
 
             result.DeletedEntities.Should().BeEquivalentTo(existingEntities);
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync);
@@ -245,27 +245,27 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
             {
                 new TestEntity { Id = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "ExcludedEntity1", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "ExcludedEntity2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "TO BE DELETED2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-            var expectedEntitiesInTargetAfterSync = new[]
+            TestEntity[] expectedEntitiesInTargetAfterSync = new[]
             {
                 new TestEntity { Id = "TO BE INSERTED 1", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
                 new TestEntity { Id = "TO BE INSERTED 2", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354 },
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesInTargetAfterSync);
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesInTargetAfterSync);
 
             result.DeletedEntities.Should().BeEquivalentTo(new[] { existingEntities[0], existingEntities[3] });
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync);
@@ -276,18 +276,18 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncAsync_ShouldInsertAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncAsync_ShouldInsertAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
             {
                 new TestEntity { Id = "TO BE UPDATED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "TO BE UPDATED2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-            var expectedEntitiesInTargetAfterSync = new[]
+            TestEntity[] expectedEntitiesInTargetAfterSync = new[]
             {
                 new TestEntity { Id = "TO BE INSERTED 1", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
                 new TestEntity { Id = "TO BE INSERTED 2", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354 },
@@ -296,7 +296,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncAsync(context.TestEntities, expectedEntitiesInTargetAfterSync);
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities, expectedEntitiesInTargetAfterSync);
 
             result.DeletedEntities.Should().BeEmpty();
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Take(2));
@@ -307,20 +307,20 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncAsync_ShouldInsertAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncAsync_ShouldInsertAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
             {
                 new TestEntity { Id = "ExcludedEntity2", IntTestValue = 5645, BoolTestValue = true, DateTimeTestValue = new DateTime(884651321), LongTestValue = 32165413 },
                 new TestEntity { Id = "TO BE UPDATED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "ExcludedEntity1", IntTestValue = 555, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "TO BE UPDATED2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-            var expectedEntitiesInTargetAfterSync = new[]
+            TestEntity[] expectedEntitiesInTargetAfterSync = new[]
             {
                 new TestEntity { Id = "TO BE INSERTED 1", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
                 new TestEntity { Id = "TO BE INSERTED 2", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354 },
@@ -329,7 +329,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesInTargetAfterSync);
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesInTargetAfterSync);
 
             result.DeletedEntities.Should().BeEmpty();
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Take(2));
@@ -340,20 +340,20 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncAsync_ShouldInsertAndUpdateAndDeleteAndReturnMatchingTargetEntities_WhenTargetIsEntireTablee(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncAsync_ShouldInsertAndUpdateAndDeleteAndReturnMatchingTargetEntities_WhenTargetIsEntireTablee(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
             {
                 new TestEntity { Id = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "TO BE UPDATED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "TO BE UPDATED2", IntTestValue = 555, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "TO BE DELETED2", IntTestValue = 6516, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-            var expectedEntitiesInTargetAfterSync = new[]
+            TestEntity[] expectedEntitiesInTargetAfterSync = new[]
             {
                 new TestEntity { Id = "TO BE INSERTED 1", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
                 new TestEntity { Id = "TO BE INSERTED 2", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354 },
@@ -362,7 +362,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesInTargetAfterSync);
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesInTargetAfterSync);
 
             result.DeletedEntities.Should().BeEquivalentTo(new[] { existingEntities[0], existingEntities[3] });
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Take(2));
@@ -373,11 +373,11 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncAsync_ShouldInsertAndUpdateAndDeleteAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncAsync_ShouldInsertAndUpdateAndDeleteAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
             {
                 new TestEntity { Id = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "ExcludedEntity2", IntTestValue = 5645, BoolTestValue = true, DateTimeTestValue = new DateTime(884651321), LongTestValue = 32165413 },
@@ -386,9 +386,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
                 new TestEntity { Id = "TO BE UPDATED2", IntTestValue = 555, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "TO BE DELETED2", IntTestValue = 6516, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-            var expectedEntitiesInTargetAfterSync = new[]
+            TestEntity[] expectedEntitiesInTargetAfterSync = new[]
             {
                 new TestEntity { Id = "TO BE INSERTED 1", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
                 new TestEntity { Id = "TO BE INSERTED 2", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354 },
@@ -397,7 +397,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesInTargetAfterSync);
+            ISyncResult<TestEntity> result = await context.SyncAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesInTargetAfterSync);
 
             result.DeletedEntities.Should().BeEquivalentTo(new[] { existingEntities[0], existingEntities[5] });
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Take(2));
@@ -408,20 +408,20 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncWithoutUpdateAsync_ShouldInsertAndReturnEntities_WhenNoEntitiesExist(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncWithoutUpdateAsync_ShouldInsertAndReturnEntities_WhenNoEntitiesExist(DbProvider provider)
         {
-            using var context = await ContextFactory.GetDbContextAsync(provider, seedData: null); // Note: no seed data => no entities exist
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: null); // Note: no seed data => no entities exist
 
-            var expectedEntitiesToBeInserted = new[]
+            TestEntity[] expectedEntitiesToBeInserted = new[]
             {
                 new TestEntity { Id = "2", IntTestValue = 222, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 15451455587546 },
                 new TestEntity { Id = "3", IntTestValue = 333, BoolTestValue = false, DateTimeTestValue = new DateTime(15645325746541), LongTestValue = 7451524264 },
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncWithoutUpdateAsync(context.TestEntities, expectedEntitiesToBeInserted);
+            ISyncWithoutUpdateResult<TestEntity> result = await context.SyncWithoutUpdateAsync(context.TestEntities, expectedEntitiesToBeInserted);
 
             result.DeletedEntities.Should().BeEmpty();
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesToBeInserted);
@@ -431,27 +431,27 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncWithoutUpdateAsync_ShouldInsertAndReturnEntities_WhenNoMatchingEntitiesExistInTarget(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncWithoutUpdateAsync_ShouldInsertAndReturnEntities_WhenNoMatchingEntitiesExistInTarget(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
 {
                 new TestEntity { Id = "1", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "4", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
 
-            var expectedEntitiesToBeInserted = new[]
+            TestEntity[] expectedEntitiesToBeInserted = new[]
             {
                 new TestEntity { Id = "2", IntTestValue = 222, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 15451455587546 },
                 new TestEntity { Id = "3", IntTestValue = 333, BoolTestValue = false, DateTimeTestValue = new DateTime(15645325746541), LongTestValue = 7451524264 },
             };
 
             // Invoke the method, excluding the existing entities, and check that the result is the expected entities
-            var existingEntityIds = existingEntities.Select(e => e.Id).ToArray();
-            var result = await context.SyncWithoutUpdateAsync(context.TestEntities.Where(e => !existingEntityIds.Contains(e.Id)), expectedEntitiesToBeInserted);
+            string[] existingEntityIds = existingEntities.Select(e => e.Id).ToArray();
+            ISyncWithoutUpdateResult<TestEntity> result = await context.SyncWithoutUpdateAsync(context.TestEntities.Where(e => !existingEntityIds.Contains(e.Id)), expectedEntitiesToBeInserted);
 
             result.DeletedEntities.Should().BeEmpty();
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesToBeInserted);
@@ -461,21 +461,21 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncWithoutUpdateAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncWithoutUpdateAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
         {
             // Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
             {
                 new TestEntity { Id = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "MATCH 1 - Should Be Ignored", IntTestValue = 222, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 5641324 },
                 new TestEntity { Id = "TO BE DELETED2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "MATCH 2 - Should Be Ignored", IntTestValue = 333, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 1354126 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-            var expectedEntitiesInTargetAfterSync = new[]
+            TestEntity[] expectedEntitiesInTargetAfterSync = new[]
             {
                 new TestEntity { Id = "TO BE INSERTED 1", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
                 new TestEntity { Id = "TO BE INSERTED 2", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354 },
@@ -484,7 +484,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncWithoutUpdateAsync(context.TestEntities, expectedEntitiesInTargetAfterSync);
+            ISyncWithoutUpdateResult<TestEntity> result = await context.SyncWithoutUpdateAsync(context.TestEntities, expectedEntitiesInTargetAfterSync);
 
             result.DeletedEntities.Should().BeEquivalentTo(existingEntities.Where(e => e.Id.StartsWith("TO BE DELETED")));
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Where(e => e.Id.StartsWith("TO BE INSERTED")));
@@ -496,12 +496,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task SyncWithoutUpdateAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task SyncWithoutUpdateAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider)
         {
             // Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
             {
                 new TestEntity { Id = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "MATCH 1 - Should Be Ignored", IntTestValue = 222, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 5641324 },
@@ -510,9 +510,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
                 new TestEntity { Id = "TO BE DELETED2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "MATCH 2 - Should Be Ignored", IntTestValue = 333, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 1354126 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-            var expectedEntitiesInTargetAfterSync = new[]
+            TestEntity[] expectedEntitiesInTargetAfterSync = new[]
             {
                 new TestEntity { Id = "TO BE INSERTED 1", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
                 new TestEntity { Id = "TO BE INSERTED 2", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354 },
@@ -521,7 +521,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.SyncWithoutUpdateAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesInTargetAfterSync);
+            ISyncWithoutUpdateResult<TestEntity> result = await context.SyncWithoutUpdateAsync(context.TestEntities.Where(e => !e.Id.StartsWith("Excluded")), expectedEntitiesInTargetAfterSync);
 
             result.DeletedEntities.Should().BeEquivalentTo(existingEntities.Where(e => e.Id.StartsWith("TO BE DELETED")));
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Where(e => e.Id.StartsWith("TO BE INSERTED")));
@@ -533,20 +533,20 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task UpsertAsync_ShouldInsertAndReturnEntities_WhenNoEntitiesExist(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task UpsertAsync_ShouldInsertAndReturnEntities_WhenNoEntitiesExist(DbProvider provider)
         {
-            using var context = await ContextFactory.GetDbContextAsync(provider, seedData: null); // Note: no seed data => no entities exist
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: null); // Note: no seed data => no entities exist
 
-            var expectedEntitiesToBeInserted = new[]
+            TestEntity[] expectedEntitiesToBeInserted = new[]
             {
                 new TestEntity { Id = "2", IntTestValue = 222, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 15451455587546 },
                 new TestEntity { Id = "3", IntTestValue = 333, BoolTestValue = false, DateTimeTestValue = new DateTime(15645325746541), LongTestValue = 7451524264 },
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.UpsertAsync(expectedEntitiesToBeInserted);
+            IUpsertResult<TestEntity> result = await context.UpsertAsync(expectedEntitiesToBeInserted);
 
             result.UpdatedEntities.Should().BeEmpty();
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesToBeInserted);
@@ -556,26 +556,26 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task UpsertAsync_ShouldInsertAndReturnEntities_WhenNoMatchingEntitiesExistInTarget(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task UpsertAsync_ShouldInsertAndReturnEntities_WhenNoMatchingEntitiesExistInTarget(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
 {
                 new TestEntity { Id = "1", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "4", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
 
-            var expectedEntitiesToBeInserted = new[]
+            TestEntity[] expectedEntitiesToBeInserted = new[]
             {
                 new TestEntity { Id = "2", IntTestValue = 222, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 15451455587546 },
                 new TestEntity { Id = "3", IntTestValue = 333, BoolTestValue = false, DateTimeTestValue = new DateTime(15645325746541), LongTestValue = 7451524264 },
             };
 
 
-            var result = await context.UpsertAsync(expectedEntitiesToBeInserted);
+            IUpsertResult<TestEntity> result = await context.UpsertAsync(expectedEntitiesToBeInserted);
 
             result.UpdatedEntities.Should().BeEmpty();
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesToBeInserted);
@@ -585,28 +585,28 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task UpsertAsync_ShouldUpdateAndReturnEntities_WhenAllEntitiesMatchInTarget(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task UpsertAsync_ShouldUpdateAndReturnEntities_WhenAllEntitiesMatchInTarget(DbProvider provider)
         {
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
             {
                 new TestEntity { Id = "1", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "Should Be Peristed 1", IntTestValue = 561645, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 54123 },
                 new TestEntity { Id = "4", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "Should Be Peristed 2", IntTestValue = 9932165, BoolTestValue = false, DateTimeTestValue = new DateTime(654165132), LongTestValue = 5641324 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
 
-            var expectedEntitiesToBeUpdated = new[]
+            TestEntity[] expectedEntitiesToBeUpdated = new[]
             {
                 new TestEntity { Id = "1", IntTestValue = 1111, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65132465 },
                 new TestEntity { Id = "4", IntTestValue = 4444, BoolTestValue = true, DateTimeTestValue = new DateTime(9841631654), LongTestValue = 2651354 },
             };
 
 
-            var result = await context.UpsertAsync(expectedEntitiesToBeUpdated);
+            IUpsertResult<TestEntity> result = await context.UpsertAsync(expectedEntitiesToBeUpdated);
 
             result.UpdatedEntities.Should().BeEquivalentTo(new[] { (existingEntities[0], expectedEntitiesToBeUpdated[0]), (existingEntities[2], expectedEntitiesToBeUpdated[1]) });
             result.InsertedEntities.Should().BeEmpty();
@@ -618,21 +618,21 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         }
 
         [DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task UpsertAsync_ShouldInsertAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task UpsertAsync_ShouldInsertAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
         {
             // Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
-            var existingEntities = new[]
+            TestEntity[] existingEntities = new[]
             {
                 new TestEntity { Id = "Should Be Peristed 1", IntTestValue = 561645, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 54123 },
                 new TestEntity { Id = "TO BE UPDATED1", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
                 new TestEntity { Id = "TO BE UPDATED2", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
                 new TestEntity { Id = "Should Be Peristed 2", IntTestValue = 9932165, BoolTestValue = false, DateTimeTestValue = new DateTime(654165132), LongTestValue = 5641324 },
             };
-            using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-            var expectedEntitiesInTargetAfterSync = new[]
+            TestEntity[] expectedEntitiesInTargetAfterSync = new[]
             {
                 new TestEntity { Id = "TO BE INSERTED 1", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
                 new TestEntity { Id = "TO BE INSERTED 2", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354 },
@@ -641,7 +641,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             };
 
             // Invoke the method and check that the result is the expected entities
-            var result = await context.UpsertAsync(expectedEntitiesInTargetAfterSync);
+            IUpsertResult<TestEntity> result = await context.UpsertAsync(expectedEntitiesInTargetAfterSync);
 
             result.UpdatedEntities.Should().BeEquivalentTo(new[] { (existingEntities[1], expectedEntitiesInTargetAfterSync[2]), (existingEntities[2], expectedEntitiesInTargetAfterSync[3]) });
             result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Where(e => e.Id.StartsWith("TO BE INSERTED")));
@@ -652,122 +652,122 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
                 .Concat(expectedEntitiesInTargetAfterSync));
         }
 
-		[DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task UpsertAsync_ShouldInsertAndUpdateIncludedPropertiesAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
-		{
-			// Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
-			var existingEntities = new[]
-			{
-				new TestEntityCompositeKey { IdPartA = "Existing 1", IdPartB = "B", IntTestValue = 561645, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 54123 },
-				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165, StringTestValue = "Original 1" },
-				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521, StringTestValue = "Original 2" },
-				new TestEntityCompositeKey { IdPartA = "Existing 2", IdPartB = "B", IntTestValue = 9932165, BoolTestValue = false, DateTimeTestValue = new DateTime(654165132), LongTestValue = 5641324 },
-			};
-			using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+        [DataTestMethod]
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task UpsertAsync_ShouldInsertAndUpdateIncludedPropertiesAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
+        {
+            // Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
+            TestEntityCompositeKey[] existingEntities = new[]
+            {
+                new TestEntityCompositeKey { IdPartA = "Existing 1", IdPartB = "B", IntTestValue = 561645, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 54123 },
+                new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165, StringTestValue = "Original 1" },
+                new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521, StringTestValue = "Original 2" },
+                new TestEntityCompositeKey { IdPartA = "Existing 2", IdPartB = "B", IntTestValue = 9932165, BoolTestValue = false, DateTimeTestValue = new DateTime(654165132), LongTestValue = 5641324 },
+            };
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-			var entitiesToUpsert = new[]
-			{
-				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 1", IdPartB = "B", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123, StringTestValue = "Well well" },
-				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 2", IdPartB = "B", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354, StringTestValue = "Well" },
-				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = 3216, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 89132453, StringTestValue = "Not included", GuidValue = Guid.NewGuid() },
-				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = 651654, BoolTestValue = false, DateTimeTestValue = new DateTime(6541231654132163), LongTestValue = 21324351, StringTestValue = "Not included", GuidValue = Guid.NewGuid() },
-			};
+            TestEntityCompositeKey[] entitiesToUpsert = new[]
+            {
+                new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 1", IdPartB = "B", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123, StringTestValue = "Well well" },
+                new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 2", IdPartB = "B", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354, StringTestValue = "Well" },
+                new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = 3216, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 89132453, StringTestValue = "Not included", GuidValue = Guid.NewGuid() },
+                new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = 651654, BoolTestValue = false, DateTimeTestValue = new DateTime(6541231654132163), LongTestValue = 21324351, StringTestValue = "Not included", GuidValue = Guid.NewGuid() },
+            };
 
-			var expectedEntitiesInTargetAfterSync = new[]
-			{
+            TestEntityCompositeKey[] expectedEntitiesInTargetAfterSync = new[]
+            {
 				// Two entities should not be touched
 				existingEntities[0],
-				existingEntities[3],
+                existingEntities[3],
 
 				// Inserted. Note: none of the nullable fields are present and should result in default values
 				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 1", IdPartB = "B", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123, },
-				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 2", IdPartB = "B", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354, },
+                new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 2", IdPartB = "B", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354, },
 
 				// Updated. Only the fields in the inclusion builder should be updated. The rest should have their original value
 				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = entitiesToUpsert[2].IntTestValue, BoolTestValue = existingEntities[1].BoolTestValue, DateTimeTestValue = entitiesToUpsert[2].DateTimeTestValue, LongTestValue = entitiesToUpsert[2].LongTestValue, StringTestValue = existingEntities[1].StringTestValue },
-				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = entitiesToUpsert[3].IntTestValue, BoolTestValue = existingEntities[2].BoolTestValue, DateTimeTestValue = entitiesToUpsert[3].DateTimeTestValue, LongTestValue = entitiesToUpsert[3].LongTestValue, StringTestValue = existingEntities[2].StringTestValue },
-			};
+                new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = entitiesToUpsert[3].IntTestValue, BoolTestValue = existingEntities[2].BoolTestValue, DateTimeTestValue = entitiesToUpsert[3].DateTimeTestValue, LongTestValue = entitiesToUpsert[3].LongTestValue, StringTestValue = existingEntities[2].StringTestValue },
+            };
 
-			// Include all fields which are non-nullable
-			var insertInclusionBuilder = new InclusionBuilder<TestEntityCompositeKey>()
-				.Include(x => x.BoolTestValue, x => x.DateTimeTestValue, x => x.EnumValue, x => x.GuidValue, x => x.IntTestValue, x => x.LongTestValue);
+            // Include all fields which are non-nullable
+            InclusionBuilder<TestEntityCompositeKey> insertInclusionBuilder = new InclusionBuilder<TestEntityCompositeKey>()
+                .Include(x => x.BoolTestValue, x => x.DateTimeTestValue, x => x.EnumValue, x => x.GuidValue, x => x.IntTestValue, x => x.LongTestValue);
 
-			var updateInclusionBuilder = new InclusionBuilder<TestEntityCompositeKey>()
-				.Include(x => x.IntTestValue, x => x.DateTimeTestValue)
-				.Include(nameof(TestEntity.LongTestValue));
+            InclusionBuilder<TestEntityCompositeKey> updateInclusionBuilder = new InclusionBuilder<TestEntityCompositeKey>()
+                .Include(x => x.IntTestValue, x => x.DateTimeTestValue)
+                .Include(nameof(TestEntity.LongTestValue));
 
-			// Invoke the method and check that the result is the expected entities
-			var result = await context.UpsertAsync(
-				entitiesToUpsert,
-				insertClusivityBuilder: insertInclusionBuilder,
-				updateClusivityBuilder: updateInclusionBuilder);
+            // Invoke the method and check that the result is the expected entities
+            IUpsertResult<TestEntityCompositeKey> result = await context.UpsertAsync(
+                entitiesToUpsert,
+                insertClusivityBuilder: insertInclusionBuilder,
+                updateClusivityBuilder: updateInclusionBuilder);
 
-			result.UpdatedEntities.Should().BeEquivalentTo(new[] { (existingEntities[1], expectedEntitiesInTargetAfterSync[4]), (existingEntities[2], expectedEntitiesInTargetAfterSync[5]) });
-			result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Where(entity => entity.IdPartA.StartsWith("TO BE INSERTED")));
+            result.UpdatedEntities.Should().BeEquivalentTo(new[] { (existingEntities[1], expectedEntitiesInTargetAfterSync[4]), (existingEntities[2], expectedEntitiesInTargetAfterSync[5]) });
+            result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Where(entity => entity.IdPartA.StartsWith("TO BE INSERTED")));
 
-			// Then check that the the changes were synced to the db. The resulting table should not touch entries which did not match, nor should it contain non-included fields
-			context.TestEntitiesWithCompositeKey.ToList().Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync);
-		}
+            // Then check that the the changes were synced to the db. The resulting table should not touch entries which did not match, nor should it contain non-included fields
+            context.TestEntitiesWithCompositeKey.ToList().Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync);
+        }
 
-		[DataTestMethod]
-		[DataRow(DbProvider.Sqlite)]
-		[DataRow(DbProvider.SqlServer)]
-		public async Task UpsertAsync_ShouldInsertAndUpdateNonExcludedPropertiesAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
-		{
-			// Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
-			var existingEntities = new[]
-			{
-				new TestEntityCompositeKey { IdPartA = "Existing 1", IdPartB = "B", IntTestValue = 561645, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 54123 },
-				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165, StringTestValue = "Original 1" },
-				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521, StringTestValue = "Original 2" },
-				new TestEntityCompositeKey { IdPartA = "Existing 2", IdPartB = "B", IntTestValue = 9932165, BoolTestValue = false, DateTimeTestValue = new DateTime(654165132), LongTestValue = 5641324 },
-			};
-			using var context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
+        [DataTestMethod]
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        public async Task UpsertAsync_ShouldInsertAndUpdateNonExcludedPropertiesAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider)
+        {
+            // Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
+            TestEntityCompositeKey[] existingEntities = new[]
+            {
+                new TestEntityCompositeKey { IdPartA = "Existing 1", IdPartB = "B", IntTestValue = 561645, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 54123 },
+                new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165, StringTestValue = "Original 1" },
+                new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521, StringTestValue = "Original 2" },
+                new TestEntityCompositeKey { IdPartA = "Existing 2", IdPartB = "B", IntTestValue = 9932165, BoolTestValue = false, DateTimeTestValue = new DateTime(654165132), LongTestValue = 5641324 },
+            };
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities);
 
-			var entitiesToUpsert = new[]
-			{
-				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 1", IdPartB = "B", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123, StringTestValue = "Well well" },
-				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 2", IdPartB = "B", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354, StringTestValue = "Well" },
-				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = 3216, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 89132453, StringTestValue = "Not included", GuidValue = Guid.NewGuid() },
-				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = 651654, BoolTestValue = false, DateTimeTestValue = new DateTime(6541231654132163), LongTestValue = 21324351, StringTestValue = "Not included", GuidValue = Guid.NewGuid() },
-			};
+            TestEntityCompositeKey[] entitiesToUpsert = new[]
+            {
+                new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 1", IdPartB = "B", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123, StringTestValue = "Well well" },
+                new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 2", IdPartB = "B", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354, StringTestValue = "Well" },
+                new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = 3216, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 89132453, StringTestValue = "Not included", GuidValue = Guid.NewGuid() },
+                new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = 651654, BoolTestValue = false, DateTimeTestValue = new DateTime(6541231654132163), LongTestValue = 21324351, StringTestValue = "Not included", GuidValue = Guid.NewGuid() },
+            };
 
-			var expectedEntitiesInTargetAfterSync = new[]
-			{
+            TestEntityCompositeKey[] expectedEntitiesInTargetAfterSync = new[]
+            {
 				// Two entities should not be touched
 				existingEntities[0],
-				existingEntities[3],
+                existingEntities[3],
 
 				// Inserted. Note: none of the nullable fields are present and should result in default values
 				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 1", IdPartB = "B", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123, },
-				new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 2", IdPartB = "B", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354, },
+                new TestEntityCompositeKey { IdPartA = "TO BE INSERTED 2", IdPartB = "B", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354, },
 
 				// Updated. Only the fields in the inclusion builder should be updated. The rest should have their original value
 				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED1", IdPartB = "B", IntTestValue = entitiesToUpsert[2].IntTestValue, BoolTestValue = existingEntities[1].BoolTestValue, DateTimeTestValue = entitiesToUpsert[2].DateTimeTestValue, LongTestValue = entitiesToUpsert[2].LongTestValue, StringTestValue = existingEntities[1].StringTestValue },
-				new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = entitiesToUpsert[3].IntTestValue, BoolTestValue = existingEntities[2].BoolTestValue, DateTimeTestValue = entitiesToUpsert[3].DateTimeTestValue, LongTestValue = entitiesToUpsert[3].LongTestValue, StringTestValue = existingEntities[2].StringTestValue },
-			};
+                new TestEntityCompositeKey { IdPartA = "TO BE UPDATED2", IdPartB = "B", IntTestValue = entitiesToUpsert[3].IntTestValue, BoolTestValue = existingEntities[2].BoolTestValue, DateTimeTestValue = entitiesToUpsert[3].DateTimeTestValue, LongTestValue = entitiesToUpsert[3].LongTestValue, StringTestValue = existingEntities[2].StringTestValue },
+            };
 
-			// Exclude all fields which are non-nullable
-			var insertExclusionBuilder = new ExclusionBuilder<TestEntityCompositeKey>()
-				.Exclude(x => x.StringTestValue, x => x.NullableDateTimeTestValue, x => x.NullableGuidValue);
+            // Exclude all fields which are non-nullable
+            ExclusionBuilder<TestEntityCompositeKey> insertExclusionBuilder = new ExclusionBuilder<TestEntityCompositeKey>()
+                .Exclude(x => x.StringTestValue, x => x.NullableDateTimeTestValue, x => x.NullableGuidValue);
 
-			var updateExclusionBuilder = new ExclusionBuilder<TestEntityCompositeKey>()
-				.Exclude(x => x.BoolTestValue, x => x.StringTestValue)
-				.Exclude(nameof(TestEntityCompositeKey.GuidValue));
+            ExclusionBuilder<TestEntityCompositeKey> updateExclusionBuilder = new ExclusionBuilder<TestEntityCompositeKey>()
+                .Exclude(x => x.BoolTestValue, x => x.StringTestValue)
+                .Exclude(nameof(TestEntityCompositeKey.GuidValue));
 
-			// Invoke the method and check that the result is the expected entities
-			var result = await context.UpsertAsync(
-				entitiesToUpsert,
-				insertClusivityBuilder: insertExclusionBuilder,
-				updateClusivityBuilder: updateExclusionBuilder);
+            // Invoke the method and check that the result is the expected entities
+            IUpsertResult<TestEntityCompositeKey> result = await context.UpsertAsync(
+                entitiesToUpsert,
+                insertClusivityBuilder: insertExclusionBuilder,
+                updateClusivityBuilder: updateExclusionBuilder);
 
-			result.UpdatedEntities.Should().BeEquivalentTo(new[] { (existingEntities[1], expectedEntitiesInTargetAfterSync[4]), (existingEntities[2], expectedEntitiesInTargetAfterSync[5]) });
-			result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Where(entity => entity.IdPartA.StartsWith("TO BE INSERTED")));
+            result.UpdatedEntities.Should().BeEquivalentTo(new[] { (existingEntities[1], expectedEntitiesInTargetAfterSync[4]), (existingEntities[2], expectedEntitiesInTargetAfterSync[5]) });
+            result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Where(entity => entity.IdPartA.StartsWith("TO BE INSERTED")));
 
-			// Then check that the the changes were synced to the db. The resulting table should not touch entries which did not match, nor should it contain non-included fields
-			context.TestEntitiesWithCompositeKey.ToList().Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync);
-		}
-	}
+            // Then check that the the changes were synced to the db. The resulting table should not touch entries which did not match, nor should it contain non-included fields
+            context.TestEntitiesWithCompositeKey.ToList().Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync);
+        }
+    }
 }

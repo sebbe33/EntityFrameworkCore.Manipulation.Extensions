@@ -1,16 +1,16 @@
-﻿using EntityFrameworkCore.Manipulation.Extensions.Internal;
-using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace EntityFrameworkCore.Manipulation.Extensions
+﻿namespace EntityFrameworkCore.Manipulation.Extensions
 {
+    using EntityFrameworkCore.Manipulation.Extensions.Internal;
+    using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.EntityFrameworkCore.Metadata;
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
+    using System.Threading;
+    using System.Threading.Tasks;
+
     public static class InsertIfNotExistExtensions
     {
         /// <summary>

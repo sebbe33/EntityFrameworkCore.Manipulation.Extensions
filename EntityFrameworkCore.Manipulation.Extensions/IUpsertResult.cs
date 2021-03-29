@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
-
-namespace EntityFrameworkCore.Manipulation.Extensions
+﻿namespace EntityFrameworkCore.Manipulation.Extensions
 {
-    public interface IUpsertResult<TEntity> 
+    using System.Collections.Generic;
+
+    public interface IUpsertResult<TEntity>
         where TEntity : class
     {
         IReadOnlyCollection<TEntity> InsertedEntities { get; }

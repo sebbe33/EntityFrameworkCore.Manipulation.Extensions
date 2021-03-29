@@ -1,16 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using EntityFrameworkCore.Manipulation.Extensions.Internal;
-using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-
-namespace EntityFrameworkCore.Manipulation.Extensions
+﻿namespace EntityFrameworkCore.Manipulation.Extensions
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Text;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using EntityFrameworkCore.Manipulation.Extensions.Internal;
+    using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.EntityFrameworkCore.Metadata;
+
     /// <summary>
     /// Extensions for <see cref="DbContext"/>.
     /// </summary>
@@ -25,8 +25,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 ignoreUpdates: false, // this is a full sync
                 ignoreDeletions: false,
                 insertClusivityBuilder,
-				updateClusivityBuilder,
-				cancellationToken);
+                updateClusivityBuilder,
+                cancellationToken);
 
         public static async Task<ISyncWithoutUpdateResult<TEntity>> SyncWithoutUpdateAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> target, IReadOnlyCollection<TEntity> source, IClusivityBuilder<TEntity> insertClusivityBuilder = null, CancellationToken cancellationToken = default)
             where TEntity : class, new()
@@ -36,8 +36,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 source ?? throw new ArgumentNullException(nameof(source)),
                 ignoreUpdates: true, // this is a sync without updates
                 ignoreDeletions: false,
-				insertClusivityBuilder,
-				null,
+                insertClusivityBuilder,
+                null,
                 cancellationToken);
 
         public static async Task<IUpsertResult<TEntity>> UpsertAsync<TEntity>(this DbContext dbContext, IReadOnlyCollection<TEntity> source, IClusivityBuilder<TEntity> insertClusivityBuilder = null, IClusivityBuilder<TEntity> updateClusivityBuilder = null, CancellationToken cancellationToken = default)
@@ -48,18 +48,18 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 source ?? throw new ArgumentNullException(nameof(source)),
                 ignoreUpdates: false,
                 ignoreDeletions: true, // this is a sync for upserts
-				insertClusivityBuilder,
-				updateClusivityBuilder,
-				cancellationToken);
+                insertClusivityBuilder,
+                updateClusivityBuilder,
+                cancellationToken);
 
         private static async Task<SyncResult<TEntity>> SyncInternalAsync<TEntity>(
-            this DbContext dbContext, 
-            IQueryable<TEntity> target, 
-            IReadOnlyCollection<TEntity> source, 
+            this DbContext dbContext,
+            IQueryable<TEntity> target,
+            IReadOnlyCollection<TEntity> source,
             bool ignoreUpdates,
             bool ignoreDeletions,
-			IClusivityBuilder<TEntity> insertClusivityBuilder,
-			IClusivityBuilder<TEntity> updateClusivityBuilder,
+            IClusivityBuilder<TEntity> insertClusivityBuilder,
+            IClusivityBuilder<TEntity> updateClusivityBuilder,
             CancellationToken cancellationToken)
             where TEntity : class, new()
         {
@@ -75,12 +75,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             IProperty[] propertiesToUpdate = updateClusivityBuilder == null ? nonPrimaryKeyProperties : updateClusivityBuilder.Build(nonPrimaryKeyProperties);
             IProperty[] propertiesToInsert = insertClusivityBuilder == null ? properties : primaryKey.Properties.Concat(insertClusivityBuilder.Build(nonPrimaryKeyProperties)).ToArray();
 
-            (string targetCommand, var targetCommandParameters) = target.ToSqlCommand();
+            (string targetCommand, IReadOnlyCollection<System.Data.SqlClient.SqlParameter> targetCommandParameters) = target.ToSqlCommand();
 
-            List<object> parameters = new List<object>(source.Count * properties.Length);
+            var parameters = new List<object>(source.Count * properties.Length);
             parameters.AddRange(targetCommandParameters);
 
-            var isSqlite = dbContext.Database.IsSqlite();
+            bool isSqlite = dbContext.Database.IsSqlite();
             if (isSqlite)
             {
                 string SourceAliaser(string columnName) => $"source_{columnName}";
@@ -139,7 +139,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                             .AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=excluded.{property.Name}")));
                 }
                 stringBuilder.AppendLine(";");
-                            
+
 
                 // Select the output
                 stringBuilder.Append("SELECT _$action, ")
@@ -192,49 +192,49 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                     .AppendColumnNames(properties, wrapInParanthesis: false, "deleted").Append(";");
             }
 
-            using var reader = await dbContext.Database.ExecuteSqlQueryAsync(stringBuilder.ToString(), parameters.ToArray(), cancellationToken);
+            using Microsoft.EntityFrameworkCore.Storage.RelationalDataReader reader = await dbContext.Database.ExecuteSqlQueryAsync(stringBuilder.ToString(), parameters.ToArray(), cancellationToken);
 
-            List<TEntity> insertedEntities = new List<TEntity>();
-            List<TEntity> deletedEntities = new List<TEntity>();
-            List<(TEntity OldValue, TEntity NewValue)> updatedEntities = new List<(TEntity OldValue, TEntity NewValue)>();
-            var deletedColumnOffset = 1 + primaryKey.Properties.Count; // action + PK key properties lengths
+            var insertedEntities = new List<TEntity>();
+            var deletedEntities = new List<TEntity>();
+            var updatedEntities = new List<(TEntity OldValue, TEntity NewValue)>();
+            int deletedColumnOffset = 1 + primaryKey.Properties.Count; // action + PK key properties lengths
 
-            var propertyValueConverters = isSqlite ? EntityUtils.GetEntityPropertiesValueConverters(properties) : null;
-            var keyValueConverters = isSqlite ? EntityUtils.GetEntityPropertiesValueConverters(primaryKey.Properties.ToArray()) : null;
+            Func<object, object>[] propertyValueConverters = isSqlite ? EntityUtils.GetEntityPropertiesValueConverters(properties) : null;
+            Func<object, object>[] keyValueConverters = isSqlite ? EntityUtils.GetEntityPropertiesValueConverters(primaryKey.Properties.ToArray()) : null;
 
-			IProperty[] propertiesNotIncludedInUpdate = null;
-			if (updateClusivityBuilder != null)
-			{
-				propertiesNotIncludedInUpdate = nonPrimaryKeyProperties.Except(propertiesToUpdate).ToArray();
-			}
-
-			IProperty[] propertiesNotIncludedInInsert = null;
-			if (insertClusivityBuilder != null)
-			{
-				propertiesNotIncludedInInsert = properties.Except(propertiesToInsert).ToArray();
-			}
-
-			while (await reader.ReadAsync(cancellationToken))
+            IProperty[] propertiesNotIncludedInUpdate = null;
+            if (updateClusivityBuilder != null)
             {
-                var row = new object[1 + primaryKey.Properties.Count + properties.Length];
+                propertiesNotIncludedInUpdate = nonPrimaryKeyProperties.Except(propertiesToUpdate).ToArray();
+            }
+
+            IProperty[] propertiesNotIncludedInInsert = null;
+            if (insertClusivityBuilder != null)
+            {
+                propertiesNotIncludedInInsert = properties.Except(propertiesToInsert).ToArray();
+            }
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                object[] row = new object[1 + primaryKey.Properties.Count + properties.Length];
                 reader.DbDataReader.GetValues(row);
 
-                var action = row[0] as string;
-                var insertKeyPropertyValues = row.Skip(1).Take(primaryKey.Properties.Count).ToArray();
+                string action = row[0] as string;
+                object[] insertKeyPropertyValues = row.Skip(1).Take(primaryKey.Properties.Count).ToArray();
 
                 if (string.Equals(action, "INSERT", StringComparison.OrdinalIgnoreCase))
                 {
-					var newValue = EntityUtils.FindEntityBasedOnKey(source, primaryKey, insertKeyPropertyValues, keyValueConverters);
-					if (propertiesNotIncludedInInsert != null)
-					{
-						// If properties are included/excluded from the insert, then we have to set them to their default value to reflect the state in the DB
-						foreach (var property in propertiesNotIncludedInInsert)
-						{
-							property.PropertyInfo.SetValue(newValue, null);
-						}
-					}
+                    TEntity newValue = EntityUtils.FindEntityBasedOnKey(source, primaryKey, insertKeyPropertyValues, keyValueConverters);
+                    if (propertiesNotIncludedInInsert != null)
+                    {
+                        // If properties are included/excluded from the insert, then we have to set them to their default value to reflect the state in the DB
+                        foreach (IProperty property in propertiesNotIncludedInInsert)
+                        {
+                            property.PropertyInfo.SetValue(newValue, null);
+                        }
+                    }
 
-					insertedEntities.Add(newValue);
+                    insertedEntities.Add(newValue);
                 }
                 else if (string.Equals(action, "DELETE", StringComparison.OrdinalIgnoreCase))
                 {
@@ -242,18 +242,18 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 }
                 else
                 {
-					// Update
-					var oldValue = EntityUtils.EntityFromRow<TEntity>(row, properties, deletedColumnOffset, propertyValueConverters);
-					var newValue = EntityUtils.FindEntityBasedOnKey(source, primaryKey, insertKeyPropertyValues, keyValueConverters);
+                    // Update
+                    TEntity oldValue = EntityUtils.EntityFromRow<TEntity>(row, properties, deletedColumnOffset, propertyValueConverters);
+                    TEntity newValue = EntityUtils.FindEntityBasedOnKey(source, primaryKey, insertKeyPropertyValues, keyValueConverters);
 
-					// We have to bear in mind that properties might be included/excluded. In that case, we'll have to take these props' values from the oldValue
-					if (propertiesNotIncludedInUpdate != null)
-					{
-						foreach (var property in propertiesNotIncludedInUpdate)
-						{
-							property.PropertyInfo.SetValue(newValue, property.PropertyInfo.GetValue(oldValue));
-						}
-					}
+                    // We have to bear in mind that properties might be included/excluded. In that case, we'll have to take these props' values from the oldValue
+                    if (propertiesNotIncludedInUpdate != null)
+                    {
+                        foreach (IProperty property in propertiesNotIncludedInUpdate)
+                        {
+                            property.PropertyInfo.SetValue(newValue, property.PropertyInfo.GetValue(oldValue));
+                        }
+                    }
 
                     updatedEntities.Add((oldValue, newValue));
                 }
