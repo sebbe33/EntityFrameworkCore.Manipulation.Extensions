@@ -1,5 +1,6 @@
-﻿namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
+namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 {
+    using EntityFrameworkCore.Manipulation.Extensions.Configuration;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore.Diagnostics;
     using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -35,7 +36,11 @@
             }
         }
 
-        public static async Task<string> CreateUserDefinedTableTypeIfNotExistsAsync(this DatabaseFacade databaseFacade, IEntityType entityType, CancellationToken cancellationToken)
+        public static async Task<string> CreateUserDefinedTableTypeIfNotExistsAsync(
+            this DatabaseFacade databaseFacade,
+            IEntityType entityType,
+            SqlServerManipulationExtensionsConfiguration configuration,
+            CancellationToken cancellationToken)
         {
             var stringBuilder = new StringBuilder();
             string entityTableName = entityType.GetTableName();
@@ -44,14 +49,13 @@
                 ?? throw new InvalidOperationException("No connection string was specified for the connection to the database."));
             string fullyQualifiedDatabaseName = connectionInfo.DataSource + connectionInfo.InitialCatalog;
 
-
             // Check if the type has already been successfully created in the current database. If so, we don't need to generate the command to create the type.
             if (userDefinedTableTypeCache.TryGetValue((fullyQualifiedDatabaseName, entityTableName), out string userDefinedTableTypeName))
             {
                 return userDefinedTableTypeName;
             }
 
-            if (!ManipulationExtensionsConfiguration.TvpInterceptors.TryGetValue(entityType.ClrType, out ITableValuedParameterInterceptor interceptor))
+            if (!configuration.TvpInterceptors.TryGetValue(entityType.ClrType, out ITableValuedParameterInterceptor interceptor))
             {
                 interceptor = DefaultTableValuedParameterInterceptor.Instance;
             }

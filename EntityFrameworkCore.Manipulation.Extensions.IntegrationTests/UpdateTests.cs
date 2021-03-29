@@ -1,4 +1,4 @@
-﻿namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
+namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 {
     using EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers;
     using FluentAssertions;
@@ -255,6 +255,8 @@
 
             // We're only using Table Valued Parameters in SqlServer
             using TestDbContext context = await ContextFactory.GetDbContextAsync(DbProvider.SqlServer, seedData: existingEntities);
+
+            context.ManipulationExtensionsConfiguration.SqlServerConfiguration.AddTableValuedParameterInterceptor<TestEntityCompositeKey>(new TestTableValuedParameterInterceptor());
 
             // Include bool values - they are the only items expected to be updated based on the mocked data.
             InclusionBuilder<TestEntityCompositeKey> inclusionBuilder = new InclusionBuilder<TestEntityCompositeKey>().Include(x => x.BoolTestValue);

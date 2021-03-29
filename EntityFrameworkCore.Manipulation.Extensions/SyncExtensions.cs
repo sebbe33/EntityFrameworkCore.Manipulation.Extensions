@@ -1,4 +1,4 @@
-﻿namespace EntityFrameworkCore.Manipulation.Extensions
+namespace EntityFrameworkCore.Manipulation.Extensions
 {
     using System;
     using System.Collections.Generic;
@@ -6,6 +6,8 @@
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using EntityFrameworkCore.Manipulation.Extensions.Configuration;
+    using EntityFrameworkCore.Manipulation.Extensions.Configuration.Internal;
     using EntityFrameworkCore.Manipulation.Extensions.Internal;
     using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
     using Microsoft.EntityFrameworkCore;
@@ -63,6 +65,7 @@
             CancellationToken cancellationToken)
             where TEntity : class, new()
         {
+            ManipulationExtensionsConfiguration configuration = dbContext.GetConfiguration();
             var stringBuilder = new StringBuilder();
 
             IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
@@ -151,9 +154,9 @@
             else
             {
                 string userDefinedTableTypeName = null;
-                if (ConfigUtils.ShouldUseTableValuedParameters(properties, source))
+                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
                 {
-                    userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, cancellationToken);
+                    userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
                 }
 
                 stringBuilder
@@ -161,7 +164,7 @@
                     .AppendLine("MERGE INTO TargetData AS target ")
                     .Append("USING ");
 
-                if (ConfigUtils.ShouldUseTableValuedParameters(properties, source))
+                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
                 {
                     stringBuilder.AppendTableValuedParameter(userDefinedTableTypeName, properties, source, parameters);
                 }

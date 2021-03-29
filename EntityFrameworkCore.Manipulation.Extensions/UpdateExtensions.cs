@@ -1,5 +1,7 @@
-﻿namespace EntityFrameworkCore.Manipulation.Extensions
+namespace EntityFrameworkCore.Manipulation.Extensions
 {
+    using EntityFrameworkCore.Manipulation.Extensions.Configuration;
+    using EntityFrameworkCore.Manipulation.Extensions.Configuration.Internal;
     using EntityFrameworkCore.Manipulation.Extensions.Internal;
     using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
     using Microsoft.EntityFrameworkCore;
@@ -86,6 +88,7 @@
                 return Array.Empty<TEntity>();
             }
 
+            ManipulationExtensionsConfiguration configuration = dbContext.GetConfiguration();
             var stringBuilder = new StringBuilder(1000);
 
             IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
@@ -129,9 +132,9 @@
             else
             {
                 string userDefinedTableTypeName = null;
-                if (ConfigUtils.ShouldUseTableValuedParameters(properties, source))
+                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
                 {
-                    userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, cancellationToken);
+                    userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
                 }
 
                 string incomingInlineTableCommand = userDefinedTableTypeName != null ?
@@ -148,7 +151,7 @@
                 // then join onto that CTE in the UPADATE, then the query optimizer can't handle mergining the looksups, and it will do two lookups,
                 // one for the CTE and one for the UPDATE JOIN. Instead, we'll just pick everything put the SELECT part of the sourceCommand and
                 // attach it to the UPDATE command, which works since it follows the exact format of a SELECT, except for the actual selecting of properties.
-                string fromJoinCommand = sourceCommand.Substring(sourceCommand.IndexOf("FROM"));
+                string fromJoinCommand = sourceCommand[sourceCommand.IndexOf("FROM")..];
 
                 // Get the alias of the inline table in the source command
                 string inlineTableAlias = joinAliasRegex.Match(fromJoinCommand).Value.Trim();

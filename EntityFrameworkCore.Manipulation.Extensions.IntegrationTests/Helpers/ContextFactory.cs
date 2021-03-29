@@ -1,4 +1,4 @@
-﻿namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
+namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 {
     using Microsoft.Data.Sqlite;
     using Microsoft.EntityFrameworkCore;
@@ -18,8 +18,6 @@
         public static async Task<TestDbContext> GetDbContextAsync(DbProvider provider, IEnumerable<object> seedData = null)
         {
             var optionsBuilder = new DbContextOptionsBuilder();
-
-            ManipulationExtensionsConfiguration.AddTableValuedParameterInterceptor<TestEntityCompositeKey>(new TestTableValuedParameterInterceptor());
 
             TestDbContext context = null;
 
