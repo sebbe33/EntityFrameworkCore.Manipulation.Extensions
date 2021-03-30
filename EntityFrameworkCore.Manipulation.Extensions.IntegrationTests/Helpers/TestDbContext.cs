@@ -15,6 +15,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 
         public DbSet<TestEntityCompositeKey> TestEntitiesWithCompositeKey { get; set; }
 
+        public DbSet<TestInterceptorEntity> TestInterceptorEntities { get; set; }
+
         public ManipulationExtensionsConfiguration ManipulationExtensionsConfiguration { get; } = new ManipulationExtensionsConfiguration();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

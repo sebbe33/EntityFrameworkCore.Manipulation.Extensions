@@ -3,6 +3,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Configuration
     using System;
     using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations;
+    using System.Globalization;
 
     /// <summary>
     /// Configuration for the EntityFrameworkCore.Manipulation.Extensions library.
@@ -26,6 +27,31 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Configuration
         /// </summary>
         [Range(0, 2000)]
         public int UseTableValuedParametersParameterCountTreshold { get; set; } = 500;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to create/use memory-optimized (in-memory OLTP) table types when using
+        /// table values parameters. Using memory-optimized table types means that the input data is stored in memory, rather
+        /// than in the temp db on disk. This option
+        /// </summary>
+        public bool UseMemoryOptimizedTableTypes { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the default Hash Index Bucket Count used when creating a Hash Index for a Memory-Optimized Table Type.
+        /// The general guidance is for this to be set to 1.5x - 2x the number of estimated max rows used as input to any of
+        /// the extension methods for this lib. You can set the bucket count for individual entity types by utilizing
+        /// <see cref="HashIndexBucketCountsByEntityType"/>. For more information, refer to
+        /// <see cref="https://docs.microsoft.com/en-us/sql/relational-databases/sql-server-index-design-guide?view=sql-server-ver15#configuring_bucket_count"/>.
+        /// </summary>
+        public int DefaultHashIndexBucketCount { get; set; } = 1000;
+
+        /// <summary>
+        /// Gets or sets a dictionary of Hash Index Bucket Counts to Entitiy Types. This can be used to specifiy the Bucket Count
+        /// when creating a Hash Index for a Memory-Optimized Table Type for a specific Entity Type. If a count for a given type
+        /// is not set, the <see cref="DefaultHashIndexBucketCount"/> will be used. The general guidance is for this to be set to
+        /// 1.5x - 2x the number of estimated max rows used as input to any of the extension methods for this lib. For more information, refer to
+        /// <see cref="https://docs.microsoft.com/en-us/sql/relational-databases/sql-server-index-design-guide?view=sql-server-ver15#configuring_bucket_count"/>.
+        /// </summary>
+        public Dictionary<string, int> HashIndexBucketCountsByEntityType { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         internal Dictionary<Type, ITableValuedParameterInterceptor> TvpInterceptors { get; } = new Dictionary<Type, ITableValuedParameterInterceptor>();
 

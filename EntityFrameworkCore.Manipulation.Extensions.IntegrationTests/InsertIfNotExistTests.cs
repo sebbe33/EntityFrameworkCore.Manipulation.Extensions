@@ -1,4 +1,4 @@
-﻿namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
+namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 {
     using EntityFrameworkCore.Manipulation.Extensions;
     using EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers;
@@ -17,9 +17,11 @@
         [DataTestMethod]
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
-        public async Task InsertIfNotExistAsync_ShouldNotInsertEntities_WhenNoEntitiesGiven(DbProvider provider)
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        public async Task InsertIfNotExistAsync_ShouldNotInsertEntities_WhenNoEntitiesGiven(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
-            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, testConfiguration: testConfiguration);
 
             // Validate that the DB doesn't have any entities
             (await context.TestEntities.CountAsync()).Should().Be(0);
@@ -35,7 +37,9 @@
         [DataTestMethod]
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
-        public async Task InsertIfNotExistAsync_ShouldInsertAndReturnAllEntitiest_WhenThereAreNoExistingEntities(DbProvider provider)
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        public async Task InsertIfNotExistAsync_ShouldInsertAndReturnAllEntitiest_WhenThereAreNoExistingEntities(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] expectedEntitiesToBeInserted = new[]
             {
@@ -43,7 +47,7 @@
                 new TestEntity { Id = "3", IntTestValue = 333, StringTestValue = "a", BoolTestValue = false, DateTimeTestValue = new DateTime(15645325746541), LongTestValue = 7451524264 },
             };
 
-            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, testConfiguration: testConfiguration);
 
             // Validate that the DB doesn't have any entities
             (await context.TestEntities.CountAsync()).Should().Be(0);
@@ -60,7 +64,9 @@
         [DataTestMethod]
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
-        public async Task InsertIfNotExistAsync_ShouldInsertAndReturnEntitiesWhichNotExist_WhenThereAreExistingEntities(DbProvider provider)
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        public async Task InsertIfNotExistAsync_ShouldInsertAndReturnEntitiesWhichNotExist_WhenThereAreExistingEntities(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
             {
@@ -76,7 +82,7 @@
             };
 
             // First, add the entities which should exist before we perform our test.
-            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, testConfiguration: testConfiguration);
             context.TestEntities.AddRange(existingEntities);
             await context.SaveChangesAsync();
 
