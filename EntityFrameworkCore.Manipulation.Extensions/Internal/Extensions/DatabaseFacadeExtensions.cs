@@ -102,7 +102,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 shouldUseMemoryOptimizedTableTypes = false; // for safety, assume that the DB doesn't support OLTP.
                 while (await reader.ReadAsync(cancellationToken))
                 {
-                    shouldUseMemoryOptimizedTableTypes = reader.DbDataReader.GetByte(0) != 0;
+                    shouldUseMemoryOptimizedTableTypes = reader.DbDataReader.GetByte(0) == 1;
                 }
             }
 
@@ -120,10 +120,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 userDefinedTableTypeName = $"{entityTableName}_v{TableTypeGeneratorVersion}m_{schemaHash}";
                 typeIdClause = $"TYPE_ID('{userDefinedTableTypeName}')";
 
-                // If we're creating a memory-optimized table type, we'll have to check that OLTP is supported in the DB.
-                // If it's not, then we'll fall back to a regular table type (finaal ELSE case).
-                // First we check if the type already exists, if it does return the type name; If not, try to create the type
-                // and return the type name. The type name may be that of the regular (non memory-optimized type) if the DB doesn't support OLTP.
                 stringBuilder
                     .Append("IF ").Append(typeIdClause).AppendLine(" IS NULL")
                         .Append("CREATE TYPE ").Append(userDefinedTableTypeName).AppendLine(" AS TABLE")
@@ -135,7 +131,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             }
             else
             {
-                // If the type exist, return the type name. If not, create it and return type name. 
                 stringBuilder
                     .Append("IF ").Append(typeIdClause).AppendLine(" IS NULL")
                         .Append("CREATE TYPE ").Append(userDefinedTableTypeName).AppendLine(" AS TABLE")
