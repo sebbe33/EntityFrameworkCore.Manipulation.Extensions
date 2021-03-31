@@ -89,13 +89,26 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             string schemaHash = schema.GetDeterministicStringHash();
 
             userDefinedTableTypeName = $"{entityTableName}_v{TableTypeGeneratorVersion}_{schemaHash}";
-            string userDefinedMemoryOptimizedTableTypeName = $"{entityTableName}_v{TableTypeGeneratorVersion}m_{schemaHash}";
 
             string typeIdClause = $"TYPE_ID('{userDefinedTableTypeName}')";
-            string memoryOptimizedTableTypeIdClause = $"TYPE_ID('{userDefinedMemoryOptimizedTableTypeName}')";
 
-            if (configuration.UseMemoryOptimizedTableTypes)
+            bool shouldUseMemoryOptimizedTableTypes = configuration.UseMemoryOptimizedTableTypes;
+
+            if (shouldUseMemoryOptimizedTableTypes)
             {
+                // Pre-check: First we need to check that the DB supports OLTP. We do this by issuing a query and reading a DB property.
+                using RelationalDataReader reader = await databaseFacade.ExecuteSqlQueryAsync("SELECT DatabasePropertyEx(DB_NAME(), 'IsXTPSupported')", new object[0], cancellationToken);
+
+                shouldUseMemoryOptimizedTableTypes = false; // for safety, assume that the DB doesn't support OLTP.
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    shouldUseMemoryOptimizedTableTypes = reader.DbDataReader.GetByte(0) != 0;
+                }
+            }
+
+            if (shouldUseMemoryOptimizedTableTypes)
+            {
+                // The result of the pre-check came back positive. Proceed with the creation of the memory-optimized type.
                 IKey primaryKey = entityType.FindPrimaryKey();
 
                 if (primaryKey == null)
@@ -103,69 +116,51 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                     throw new InvalidOperationException("Cannot create a memory-optimized table type for an entity without a primary key");
                 }
 
+                // Override the table name + Type ID to be a memory type
+                userDefinedTableTypeName = $"{entityTableName}_v{TableTypeGeneratorVersion}m_{schemaHash}";
+                typeIdClause = $"TYPE_ID('{userDefinedTableTypeName}')";
+
                 // If we're creating a memory-optimized table type, we'll have to check that OLTP is supported in the DB.
                 // If it's not, then we'll fall back to a regular table type (finaal ELSE case).
                 // First we check if the type already exists, if it does return the type name; If not, try to create the type
                 // and return the type name. The type name may be that of the regular (non memory-optimized type) if the DB doesn't support OLTP.
                 stringBuilder
-                    .Append("IF ").Append(memoryOptimizedTableTypeIdClause).AppendLine(" IS NOT NULL")
-                        .Append("SELECT '").Append(userDefinedMemoryOptimizedTableTypeName).AppendLine("'")
-                    .AppendLine("ELSE IF (DatabasePropertyEx(DB_NAME(), 'IsXTPSupported') = 1)")
-                        .AppendLine("BEGIN")
-                        .Append("CREATE TYPE ").Append(userDefinedMemoryOptimizedTableTypeName).AppendLine(" AS TABLE")
+                    .Append("IF ").Append(typeIdClause).AppendLine(" IS NULL")
+                        .Append("CREATE TYPE ").Append(userDefinedTableTypeName).AppendLine(" AS TABLE")
                         .AppendLine("(")
                             .Append(schema).AppendLine(",")
-                            .Append("INDEX IX_").Append(userDefinedMemoryOptimizedTableTypeName).Append(" HASH ").AppendColumnNames(primaryKey.Properties, true).AppendLine()
+                            .Append("INDEX IX_").Append(userDefinedTableTypeName).Append(" HASH ").AppendColumnNames(primaryKey.Properties, true).AppendLine()
                             .Append("WITH (BUCKET_COUNT = ").Append(hashBucketCount).AppendLine(")")
-                        .AppendLine(") WITH (MEMORY_OPTIMIZED = ON)")
-                        .Append("SELECT '").Append(userDefinedMemoryOptimizedTableTypeName).AppendLine("'")
-                        .AppendLine("END")
-                    .Append("ELSE ");
+                        .AppendLine(") WITH (MEMORY_OPTIMIZED = ON)");
+            }
+            else
+            {
+                // If the type exist, return the type name. If not, create it and return type name. 
+                stringBuilder
+                    .Append("IF ").Append(typeIdClause).AppendLine(" IS NULL")
+                        .Append("CREATE TYPE ").Append(userDefinedTableTypeName).AppendLine(" AS TABLE")
+                        .Append("( ").Append(schema).AppendLine(" )");
             }
 
-            // If the type exist, return the type name. If not, create it and return type name. 
-            stringBuilder
-                .Append("IF ").Append(typeIdClause).AppendLine(" IS NOT NULL")
-                    .Append("SELECT '").Append(userDefinedTableTypeName).AppendLine("'")
-                .AppendLine("ELSE")
-                    .AppendLine("BEGIN")
-                    .Append("CREATE TYPE ").Append(userDefinedTableTypeName).AppendLine(" AS TABLE")
-                    .Append("( ").Append(schema).AppendLine(" )")
-                    .Append("SELECT '").Append(userDefinedTableTypeName).AppendLine("'")
-                    .AppendLine("END");
-
-            string createdTableTypeName = null;
             try
             {
-                using RelationalDataReader reader = await databaseFacade.ExecuteSqlQueryAsync(stringBuilder.ToString(), new object[0], cancellationToken);
-
-                while (await reader.ReadAsync(cancellationToken))
-                {
-                    createdTableTypeName = reader.DbDataReader.GetString(0);
-                }
-
-                // Sanity check
-                if (string.IsNullOrWhiteSpace(createdTableTypeName))
-                {
-                    throw new ApplicationException("Sanity check after table type creation failed. Please contact the author of the library to report the issue.");
-                }
+                await databaseFacade.ExecuteSqlRawAsync(stringBuilder.ToString(), cancellationToken);
             }
             catch (SqlException e) when (e.Message?.Contains("already exists") == true)
             {
                 // Check if the type already exists
-                using RelationalDataReader reader = await databaseFacade.ExecuteSqlQueryAsync(
-                    configuration.UseMemoryOptimizedTableTypes ?
-                        $"SELECT CASE WHEN (DatabasePropertyEx(DB_NAME(), 'IsXTPSupported') = 1) THEN TYPE_NAME({memoryOptimizedTableTypeIdClause}) ELSE TYPE_NAME({typeIdClause}) END AS UserDefinedTypeId"
-                        :
-                        $"SELECT TYPE_NAME({typeIdClause}) END AS UserDefinedTypeId",
-                    new object[0],
-                    cancellationToken);
+                bool doesExist = false;
+                using RelationalDataReader reader = await databaseFacade.ExecuteSqlQueryAsync($"SELECT TYPE_NAME({typeIdClause}) END AS UserDefinedTypeId", new object[0], cancellationToken);
+
                 while (await reader.ReadAsync(cancellationToken))
                 {
-                    createdTableTypeName = reader.DbDataReader.GetString(0);
+                    if (!reader.DbDataReader.IsDBNull(0))
+                    {
+                        doesExist = true;
+                    }
                 }
 
-                if (string.IsNullOrWhiteSpace(createdTableTypeName))
+                if (!doesExist)
                 {
                     throw;
                 }
@@ -173,8 +168,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
 
             // Cache that the type now exists
-            UserDefinedTableTypeCache.TryAdd((fullyQualifiedDatabaseName, entityTableName, cacheConfiguration), createdTableTypeName);
-            return createdTableTypeName;
+            UserDefinedTableTypeCache.TryAdd((fullyQualifiedDatabaseName, entityTableName, cacheConfiguration), userDefinedTableTypeName);
+            return userDefinedTableTypeName;
         }
     }
 }
