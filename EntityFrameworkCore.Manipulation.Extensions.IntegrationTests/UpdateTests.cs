@@ -1,12 +1,12 @@
-﻿namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
+namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
 {
     using EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers;
     using FluentAssertions;
     using Microsoft.VisualStudio.TestTools.UnitTesting;
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.Linq;
-    using System.Linq.Expressions;
     using System.Threading.Tasks;
 
     [TestClass]
@@ -15,9 +15,11 @@
         [DataTestMethod]
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
-        public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoEntitiesInDbNorInput(DbProvider provider)
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoEntitiesInDbNorInput(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
-            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider); // Note: no seed data => no entities exist
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, testConfiguration: testConfiguration); // Note: no seed data => no entities exist
 
             // Invoke the method and check that the result is empty
             IReadOnlyCollection<TestEntityCompositeKey> result = await context.UpdateAsync(Array.Empty<TestEntityCompositeKey>());
@@ -30,7 +32,9 @@
         [DataTestMethod]
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
-        public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoEntitiesInInput(DbProvider provider)
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoEntitiesInInput(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
             {
@@ -38,7 +42,7 @@
                 new TestEntityCompositeKey { IdPartA = "Should not be touched 2", IdPartB ="B", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
             };
 
-            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities, testConfiguration: testConfiguration);
 
             // Invoke the method and check that the result is empty
             IReadOnlyCollection<TestEntityCompositeKey> result = await context.UpdateAsync(Array.Empty<TestEntityCompositeKey>());
@@ -51,7 +55,9 @@
         [DataTestMethod]
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
-        public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoMatchingEntitiesBasedOnKey(DbProvider provider)
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoMatchingEntitiesBasedOnKey(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
             {
@@ -59,7 +65,7 @@
                 new TestEntityCompositeKey { IdPartA = "Should not be touched 2", IdPartB ="B", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
             };
 
-            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities, testConfiguration: testConfiguration);
 
             // Invoke the method and check that the result is empty
             IReadOnlyCollection<TestEntityCompositeKey> result = await context.UpdateAsync(
@@ -77,7 +83,9 @@
         [DataTestMethod]
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
-        public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoMatchingEntitiesBasedOnCondition(DbProvider provider)
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoMatchingEntitiesBasedOnCondition(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
             {
@@ -85,7 +93,7 @@
                 new TestEntityCompositeKey { IdPartA = "Should not be touched 2", IdPartB = "B", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
             };
 
-            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities, testConfiguration: testConfiguration);
 
             // Invoke the method and check that the result is empty
             IReadOnlyCollection<TestEntityCompositeKey> result = await context.UpdateAsync(
@@ -104,7 +112,9 @@
         [DataTestMethod]
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
-        public async Task UpdateAsync_ShouldReturnUpdatedCollection_WhenAllEntitiesAreMatchingWithoutCondition(DbProvider provider)
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        public async Task UpdateAsync_ShouldReturnUpdatedCollection_WhenAllEntitiesAreMatchingWithoutCondition(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
             {
@@ -116,7 +126,7 @@
                 new TestEntityCompositeKey { IdPartA = "Should be updated 1", IdPartB = "B", IntTestValue = 561645, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow.AddDays(1), LongTestValue = 781 },
                 new TestEntityCompositeKey { IdPartA = "Should be updated 2", IdPartB = "B", IntTestValue = 111, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow.AddDays(1), LongTestValue = 6613 },
             };
-            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities, testConfiguration: testConfiguration);
 
             // Invoke the method and check that the result the updated expected entities
             IReadOnlyCollection<TestEntityCompositeKey> result = await context.UpdateAsync(expectedEntities);
@@ -129,7 +139,9 @@
         [DataTestMethod]
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
-        public async Task UpdateAsync_ShouldReturnAffectedUpdatedCollection_WhenASubsetOfEntitiesAreMatchingWithoutCondition(DbProvider provider)
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        public async Task UpdateAsync_ShouldReturnAffectedUpdatedCollection_WhenASubsetOfEntitiesAreMatchingWithoutCondition(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
             {
@@ -143,7 +155,7 @@
                 new TestEntityCompositeKey { IdPartA = "Should be updated 1", IdPartB = "B", IntTestValue = 561645, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow.AddDays(1), LongTestValue = 781 },
                 new TestEntityCompositeKey { IdPartA = "Should be updated 3", IdPartB = "B", IntTestValue = 111, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow.AddDays(1), LongTestValue = 6613 },
             };
-            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities, testConfiguration: testConfiguration);
 
             // Invoke the method and check that the result the updated expected entities
             IReadOnlyCollection<TestEntityCompositeKey> result = await context.UpdateAsync(expectedEntities);
@@ -156,7 +168,9 @@
         [DataTestMethod]
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
-        public async Task UpdateAsync_ShouldReturnAffectedUpdatedCollection_WhenASubsetOfEntitiesAreMatchingWithCondition(DbProvider provider)
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        public async Task UpdateAsync_ShouldReturnAffectedUpdatedCollection_WhenASubsetOfEntitiesAreMatchingWithCondition(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
             {
@@ -171,7 +185,7 @@
                 new TestEntityCompositeKey { IdPartA = "Should be updated 3", IdPartB = "B", IntTestValue = 561235164, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow.AddDays(1), LongTestValue = 6613 },
                 new TestEntityCompositeKey { IdPartA = "Should not be updated 4", IdPartB = "B", IntTestValue = -1, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 897546 },
             };
-            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities, testConfiguration: testConfiguration);
 
             // Invoke the method and check that the result the updated expected entities
             IReadOnlyCollection<TestEntityCompositeKey> result = await context.UpdateAsync(
@@ -186,7 +200,9 @@
         [DataTestMethod]
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
-        public async Task UpdateAsync_ShouldReturnCollectionWithOnlyIncludedPropertiesUpdated_WhenEntitiesMatchAndIncludedPropertyExpresionsArePassed(DbProvider provider)
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        public async Task UpdateAsync_ShouldReturnCollectionWithOnlyIncludedPropertiesUpdated_WhenEntitiesMatchAndIncludedPropertyExpresionsArePassed(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
             {
@@ -199,7 +215,7 @@
                 new TestEntityCompositeKey { IdPartA = "Should not be updated 1", IdPartB = "B", IntTestValue = -1, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow.AddDays(1), LongTestValue = 781 },
                 new TestEntityCompositeKey { IdPartA = "Should be updated 3", IdPartB = "B", IntTestValue = 561235164, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow.AddDays(1), LongTestValue = 165465132165 },
             };
-            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities, testConfiguration: testConfiguration);
 
             // Include long and datetime values - they are the only items expected to be updated based on the mocked data.
             InclusionBuilder<TestEntityCompositeKey> inclusionBuilder = new InclusionBuilder<TestEntityCompositeKey>()
@@ -231,18 +247,16 @@
         [TestMethod]
         public async Task UpdateAsync_ShouldReturnAffectedUpdatedCollection_WhenASubsetOfEntitiesAreMatchingWithConditionUsingTvpInterceptor()
         {
-            TestEntityCompositeKey[] existingEntities = Enumerable.Range(0, 52).Select(id => new TestEntityCompositeKey
+            TestInterceptorEntity[] existingEntities = Enumerable.Range(0, 52).Select(id => new TestInterceptorEntity
             {
-                IdPartA = id.ToString(),
-                IdPartB = "B",
+                Id = id.ToString(CultureInfo.InvariantCulture),
                 IntTestValue = id % 2,
                 BoolTestValue = false,
                 StringTestValue = "short string",
             }).ToArray();
-            TestEntityCompositeKey[] expectedEntities = Enumerable.Range(0, 52).Select(id => new TestEntityCompositeKey
+            TestInterceptorEntity[] expectedEntities = Enumerable.Range(0, 52).Select(id => new TestInterceptorEntity
             {
-                IdPartA = id.ToString(),
-                IdPartB = "B",
+                Id = id.ToString(CultureInfo.InvariantCulture),
                 IntTestValue = 1,
                 BoolTestValue = true,
                 // The string field has a max length of 25 chars set with an attribute.
@@ -256,11 +270,17 @@
             // We're only using Table Valued Parameters in SqlServer
             using TestDbContext context = await ContextFactory.GetDbContextAsync(DbProvider.SqlServer, seedData: existingEntities);
 
+            // Make sure we're using TVP
+            context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseTableValuedParametersParameterCountTreshold = 0;
+
+            // Add the test interceptor
+            context.ManipulationExtensionsConfiguration.SqlServerConfiguration.AddTableValuedParameterInterceptor<TestInterceptorEntity>(new TestTableValuedParameterInterceptor());
+
             // Include bool values - they are the only items expected to be updated based on the mocked data.
-            InclusionBuilder<TestEntityCompositeKey> inclusionBuilder = new InclusionBuilder<TestEntityCompositeKey>().Include(x => x.BoolTestValue);
+            InclusionBuilder<TestInterceptorEntity> inclusionBuilder = new InclusionBuilder<TestInterceptorEntity>().Include(x => x.BoolTestValue);
 
             // Invoke the method and check that the result the updated expected entities
-            IReadOnlyCollection<TestEntityCompositeKey> result = await context.UpdateAsync(
+            IReadOnlyCollection<TestInterceptorEntity> result = await context.UpdateAsync(
                 expectedEntities,
                 condition: x => x.Incoming.IntTestValue == x.Current.IntTestValue, // Only update if IntTestValue is equal to the incoming value
                 clusivityBuilder: inclusionBuilder);
@@ -268,10 +288,9 @@
             Assert.IsTrue(result.All(r => r.BoolTestValue));
 
             // Validate that the DB is updated
-            context.TestEntitiesWithCompositeKey.Should().BeEquivalentTo(existingEntities.Select(e => new TestEntityCompositeKey
+            context.TestInterceptorEntities.Should().BeEquivalentTo(existingEntities.Select(e => new TestInterceptorEntity
             {
-                IdPartA = e.IdPartA,
-                IdPartB = e.IdPartB,
+                Id = e.Id,
                 IntTestValue = e.IntTestValue,
                 BoolTestValue = e.IntTestValue == 1,
                 StringTestValue = e.StringTestValue,
@@ -282,7 +301,7 @@
             {
                 Assert.AreEqual(1, interceptedProperties.Count(p => p.ColumnName == propertyKvp.Key && p.ColumnType == propertyKvp.Value));
             }
-            Assert.AreEqual(typeof(TestEntityCompositeKey).GetProperties().Length, interceptedProperties.Count);
+            Assert.AreEqual(typeof(TestInterceptorEntity).GetProperties().Length, interceptedProperties.Count);
         }
 
         [DataTestMethod]

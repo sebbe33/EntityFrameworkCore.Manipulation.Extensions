@@ -1,5 +1,7 @@
-﻿namespace EntityFrameworkCore.Manipulation.Extensions
+namespace EntityFrameworkCore.Manipulation.Extensions
 {
+    using EntityFrameworkCore.Manipulation.Extensions.Configuration;
+    using EntityFrameworkCore.Manipulation.Extensions.Configuration.Internal;
     using EntityFrameworkCore.Manipulation.Extensions.Internal;
     using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
     using Microsoft.EntityFrameworkCore;
@@ -39,6 +41,8 @@
                 return new TEntity[0];
             }
 
+            ManipulationExtensionsConfiguration configuration = dbContext.GetConfiguration();
+
             IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
 
             string tableName = entityType.GetTableName();
@@ -67,15 +71,15 @@
             else
             {
                 string userDefinedTableTypeName = null;
-                if (ConfigUtils.ShouldUseTableValuedParameters(properties, entities))
+                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities))
                 {
-                    userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, cancellationToken);
+                    userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
                 }
 
                 stringBuilder.AppendLine("INSERT INTO ").Append(tableName).AppendColumnNames(properties, wrapInParanthesis: true)
                              .AppendLine("OUTPUT INSERTED.* ");
 
-                if (ConfigUtils.ShouldUseTableValuedParameters(properties, entities))
+                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities))
                 {
                     stringBuilder.Append("SELECT * FROM ")
                         .AppendTableValuedParameter(userDefinedTableTypeName, properties, entities, parameters)

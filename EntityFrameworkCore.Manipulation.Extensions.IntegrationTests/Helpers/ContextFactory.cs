@@ -1,4 +1,4 @@
-﻿namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
+namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 {
     using Microsoft.Data.Sqlite;
     using Microsoft.EntityFrameworkCore;
@@ -15,11 +15,9 @@
 
     public static class ContextFactory
     {
-        public static async Task<TestDbContext> GetDbContextAsync(DbProvider provider, IEnumerable<object> seedData = null)
+        public static async Task<TestDbContext> GetDbContextAsync(DbProvider provider, IEnumerable<object> seedData = null, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             var optionsBuilder = new DbContextOptionsBuilder();
-
-            ManipulationExtensionsConfiguration.AddTableValuedParameterInterceptor<TestEntityCompositeKey>(new TestTableValuedParameterInterceptor());
 
             TestDbContext context = null;
 
@@ -60,21 +58,30 @@
 
                 context = new TestDbContext(optionsBuilder.Options);
 
-                if (!await context.Database.EnsureCreatedAsync())
-                {
-                    // Clear the DB
-                    SqlCommand command = sqlConnection.CreateCommand();
-                    command.CommandText = "DELETE FROM TestEntities; DELETE FROM TestEntitiesWithCompositeKey;";
-                    await command.ExecuteNonQueryAsync();
-                }
+                await context.Database.MigrateAsync();
+
+                // Clear the DB
+                SqlCommand command = sqlConnection.CreateCommand();
+                command.CommandText = "DELETE FROM TestEntities; DELETE FROM TestEntitiesWithCompositeKey; DELETE FROM TestInterceptorEntities;";
+                await command.ExecuteNonQueryAsync();
             }
 
             if (seedData != null)
             {
                 using var seedContext = new TestDbContext(optionsBuilder.Options);
-                seedContext.Database.EnsureCreated();
                 seedContext.AddRange(seedData);
                 await seedContext.SaveChangesAsync();
+            }
+
+            if (testConfiguration == TestConfiguration.SqlServerRegularTableTypes)
+            {
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseMemoryOptimizedTableTypes = false;
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseTableValuedParametersParameterCountTreshold = 0;
+            }
+            else if (testConfiguration == TestConfiguration.SqlServerMemoryOptimizedTableTypes)
+            {
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseMemoryOptimizedTableTypes = true;
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseTableValuedParametersParameterCountTreshold = 0;
             }
 
             return context;
