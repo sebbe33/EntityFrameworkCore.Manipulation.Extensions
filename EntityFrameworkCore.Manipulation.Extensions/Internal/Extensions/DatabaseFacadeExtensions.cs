@@ -21,6 +21,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
         private static readonly ConcurrentDictionary<(string DatabaseName, string EntityTableName, string Configuration), string> UserDefinedTableTypeCache
             = new ConcurrentDictionary<(string, string, string), string>();
 
+        private static readonly SemaphoreSlim TvpCreationLock = new SemaphoreSlim(1, 1);
+
         public static Task<RelationalDataReader> ExecuteSqlQueryAsync(this DatabaseFacade databaseFacade, string sql, object[] parameters, CancellationToken cancellationToken)
         {
             IConcurrencyDetector concurrencyDetector = databaseFacade.GetService<IConcurrencyDetector>();
@@ -139,13 +141,17 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
             try
             {
+                // We'll take two concurrency precautions when creating the TVP.
+                //   1. Lock down the creation of the type to one caller at a time, avoiding conflicts at a local level
+                //   2. If another caller, not on a local level, creates the TVP before us, then we'll catch the exception and check that the type has been created.
+                await TvpCreationLock.WaitAsync(cancellationToken);
                 await databaseFacade.ExecuteSqlRawAsync(stringBuilder.ToString(), cancellationToken);
             }
             catch (SqlException e) when (e.Message?.Contains("already exists") == true)
             {
                 // Check if the type already exists
                 bool doesExist = false;
-                using RelationalDataReader reader = await databaseFacade.ExecuteSqlQueryAsync($"SELECT TYPE_NAME({typeIdClause}) END AS UserDefinedTypeId", new object[0], cancellationToken);
+                using RelationalDataReader reader = await databaseFacade.ExecuteSqlQueryAsync($"SELECT TYPE_NAME({typeIdClause}) AS UserDefinedTypeId", new object[0], cancellationToken);
 
                 while (await reader.ReadAsync(cancellationToken))
                 {
@@ -159,6 +165,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 {
                     throw;
                 }
+            }
+            finally
+            {
+                TvpCreationLock.Release();
             }
 
 
