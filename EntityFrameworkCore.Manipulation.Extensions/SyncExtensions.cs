@@ -65,7 +65,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             CancellationToken cancellationToken)
             where TEntity : class, new()
         {
-            ManipulationExtensionsConfiguration configuration = dbContext.GetConfiguration();
             var stringBuilder = new StringBuilder();
 
             IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
@@ -86,113 +85,34 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             bool isSqlite = dbContext.Database.IsSqlite();
             if (isSqlite)
             {
-                string SourceAliaser(string columnName) => $"source_{columnName}";
-                string TargetAliaser(string columnName) => $"target_{columnName}";
-
-                stringBuilder.AppendLine("BEGIN TRANSACTION;")
-                             .AppendLine("DROP TABLE IF EXISTS EntityFrameworkManipulationSync;")
-                             .AppendLine("CREATE TEMP TABLE EntityFrameworkManipulationSync AS ")
-                             .AppendLine("WITH source AS ( ")
-                                .AppendSelectFromInlineTable(properties, source, parameters, "x", sqliteSyntax: true)
-                                .AppendLine("), ")
-                             .AppendLine("target AS ( ")
-                                .Append(targetCommand)
-                                .AppendLine(") ")
-                             .Append("SELECT (CASE WHEN (")
-                                .AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"target.{property.Name} IS NULL")))
-                                .Append(") THEN 'INSERT' ELSE 'UPDATE' END) AS _$action, ")
-                                .AppendColumnNames(properties, false, "source", SourceAliaser).Append(", ")
-                                .AppendColumnNames(properties, false, "target", TargetAliaser)
-                                .Append("FROM source LEFT OUTER JOIN target ON ").AppendJoinCondition(primaryKey);
-
-                // We ignore updates by not taking any matches in target (leaving us with only inserts, but crutially the target.* columns)
-                if (ignoreUpdates)
-                {
-                    stringBuilder.Append("WHERE _$action = 'INSERT'");
-                }
-
-                if (!ignoreDeletions)
-                {
-                    stringBuilder
-                        .AppendLine()
-                        .AppendLine("UNION")
-                        .Append("SELECT 'DELETE' AS _$action, ")
-                            .AppendColumnNames(properties, false, "source", SourceAliaser).Append(", ")
-                            .AppendColumnNames(properties, false, "target", TargetAliaser)
-                            .Append("FROM target LEFT OUTER JOIN source ON ").AppendJoinCondition(primaryKey)
-                            .Append("WHERE ").AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"source.{property.Name} IS NULL"))).AppendLine(";")
-                        .Append("DELETE FROM ").Append(tableName).Append(" WHERE EXISTS (SELECT 1 FROM EntityFrameworkManipulationSync WHERE _$action='DELETE' AND ")
-                            .AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"{property.Name}={TargetAliaser(property.Name)}"))).AppendLine(");");
-                }
-                else
-                {
-                    stringBuilder.AppendLine(";");
-                }
-
-                // UPSERT
-                stringBuilder
-                    .Append("INSERT OR REPLACE INTO ").Append(tableName).AppendColumnNames(propertiesToInsert, true)
-                        .Append(" SELECT ").AppendJoin(",", propertiesToInsert.Select(m => SourceAliaser(m.GetColumnName())))
-                        .AppendLine(" FROM EntityFrameworkManipulationSync WHERE _$action='INSERT' OR _$action='UPDATE' ");
-
-                // There's no need to update if all rows are included in the primary key as nothing has changed.
-                if (propertiesToUpdate.Any())
-                {
-                    stringBuilder.Append("    ON CONFLICT ").AppendColumnNames(primaryKey.Properties, true).Append(" DO UPDATE SET ")
-                            .AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=excluded.{property.Name}")));
-                }
-                stringBuilder.AppendLine(";");
-
-
-                // Select the output
-                stringBuilder.Append("SELECT _$action, ")
-                        .AppendJoin(", ", primaryKey.Properties.Select(m => SourceAliaser(m.GetColumnName()))).Append(", ")
-                        .AppendJoin(", ", properties.Select(m => TargetAliaser(m.GetColumnName())))
-                        .AppendLine(" FROM EntityFrameworkManipulationSync;")
-                    .Append("COMMIT;");
+                stringBuilder.AddSqliteSyncCommand(
+                    source,
+                    ignoreUpdates: ignoreUpdates,
+                    ignoreDeletions: ignoreDeletions,
+                    tableName: tableName,
+                    primaryKey: primaryKey,
+                    properties: properties,
+                    propertiesToUpdate: propertiesToUpdate,
+                    propertiesToInsert: propertiesToInsert,
+                    parameters: parameters,
+                    targetCommand: targetCommand);
             }
             else
             {
-                string userDefinedTableTypeName = null;
-                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
-                {
-                    userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
-                }
-
-                stringBuilder
-                    .AppendLine("WITH TargetData AS (").Append(targetCommand).AppendLine(")")
-                    .AppendLine("MERGE INTO TargetData AS target ")
-                    .Append("USING ");
-
-                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
-                {
-                    stringBuilder.AppendTableValuedParameter(userDefinedTableTypeName, properties, source, parameters);
-                }
-                else
-                {
-                    stringBuilder.Append("(").AppendSelectFromInlineTable(properties, source, parameters, "x").Append(")");
-                }
-
-                stringBuilder.Append(" AS source ON ").AppendJoinCondition(primaryKey).AppendLine(" ")
-                    .Append("WHEN NOT MATCHED BY TARGET THEN INSERT ")
-                    .AppendColumnNames(propertiesToInsert, wrapInParanthesis: true).Append("VALUES ")
-                    .AppendColumnNames(propertiesToInsert, wrapInParanthesis: true, identifierPrefix: "source")
-                    .AppendLine();
-
-                if (!ignoreUpdates)
-                {
-                    stringBuilder.Append("WHEN MATCHED THEN UPDATE SET ").AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=source.{property.Name}"))).AppendLine();
-                }
-
-                if (!ignoreDeletions)
-                {
-                    stringBuilder.AppendLine("WHEN NOT MATCHED BY SOURCE THEN DELETE");
-                }
-
-                stringBuilder
-                    .Append("OUTPUT $action, ")
-                    .AppendColumnNames(primaryKey.Properties, wrapInParanthesis: false, "inserted").Append(", ")
-                    .AppendColumnNames(properties, wrapInParanthesis: false, "deleted").Append(";");
+                await stringBuilder.AddSqlServerSyncCommand(
+                    dbContext: dbContext,
+                    entityType: entityType,
+                    source: source,
+                    ignoreUpdates: ignoreUpdates,
+                    ignoreDeletions: ignoreDeletions,
+                    tableName: tableName,
+                    primaryKey: primaryKey,
+                    properties: properties,
+                    propertiesToUpdate: propertiesToUpdate,
+                    propertiesToInsert: propertiesToInsert,
+                    parameters: parameters,
+                    targetCommand: targetCommand,
+                    cancellationToken);
             }
 
             using Microsoft.EntityFrameworkCore.Storage.RelationalDataReader reader = await dbContext.Database.ExecuteSqlQueryAsync(stringBuilder.ToString(), parameters.ToArray(), cancellationToken);
@@ -263,6 +183,147 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             }
 
             return new SyncResult<TEntity>(deletedEntities, insertedEntities, updatedEntities);
+        }
+
+        private static void AddSqliteSyncCommand<TEntity>(
+            this StringBuilder stringBuilder,
+            IReadOnlyCollection<TEntity> source,
+            bool ignoreUpdates,
+            bool ignoreDeletions,
+            string tableName,
+            IKey primaryKey,
+            IProperty[] properties,
+            IProperty[] propertiesToUpdate,
+            IProperty[] propertiesToInsert,
+            List<object> parameters,
+            string targetCommand)
+            where TEntity : class, new()
+        {
+            string SourceAliaser(string columnName) => $"source_{columnName}";
+            string TargetAliaser(string columnName) => $"target_{columnName}";
+
+            stringBuilder.AppendLine("BEGIN TRANSACTION;")
+                         .AppendLine("DROP TABLE IF EXISTS EntityFrameworkManipulationSync;")
+                         .AppendLine("CREATE TEMP TABLE EntityFrameworkManipulationSync AS ")
+                         .AppendLine("WITH source AS ( ")
+                            .AppendSelectFromInlineTable(properties, source, parameters, "x", sqliteSyntax: true)
+                            .AppendLine("), ")
+                         .AppendLine("target AS ( ")
+                            .Append(targetCommand)
+                            .AppendLine(") ")
+                         .Append("SELECT (CASE WHEN (")
+                            .AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"target.{property.Name} IS NULL")))
+                            .Append(") THEN 'INSERT' ELSE 'UPDATE' END) AS _$action, ")
+                            .AppendColumnNames(properties, false, "source", SourceAliaser).Append(", ")
+                            .AppendColumnNames(properties, false, "target", TargetAliaser)
+                            .Append("FROM source LEFT OUTER JOIN target ON ").AppendJoinCondition(primaryKey);
+
+            // We ignore updates by not taking any matches in target (leaving us with only inserts, but crutially the target.* columns)
+            if (ignoreUpdates)
+            {
+                stringBuilder.Append("WHERE _$action = 'INSERT'");
+            }
+
+            if (!ignoreDeletions)
+            {
+                stringBuilder
+                    .AppendLine()
+                    .AppendLine("UNION")
+                    .Append("SELECT 'DELETE' AS _$action, ")
+                        .AppendColumnNames(properties, false, "source", SourceAliaser).Append(", ")
+                        .AppendColumnNames(properties, false, "target", TargetAliaser)
+                        .Append("FROM target LEFT OUTER JOIN source ON ").AppendJoinCondition(primaryKey)
+                        .Append("WHERE ").AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"source.{property.Name} IS NULL"))).AppendLine(";")
+                    .Append("DELETE FROM ").Append(tableName).Append(" WHERE EXISTS (SELECT 1 FROM EntityFrameworkManipulationSync WHERE _$action='DELETE' AND ")
+                        .AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"{property.Name}={TargetAliaser(property.Name)}"))).AppendLine(");");
+            }
+            else
+            {
+                stringBuilder.AppendLine(";");
+            }
+
+            // UPSERT
+            stringBuilder
+                .Append("INSERT OR REPLACE INTO ").Append(tableName).AppendColumnNames(propertiesToInsert, true)
+                    .Append(" SELECT ").AppendJoin(",", propertiesToInsert.Select(m => SourceAliaser(m.GetColumnName())))
+                    .AppendLine(" FROM EntityFrameworkManipulationSync WHERE _$action='INSERT' OR _$action='UPDATE' ");
+
+            // There's no need to update if all rows are included in the primary key as nothing has changed.
+            if (propertiesToUpdate.Any())
+            {
+                stringBuilder.Append("    ON CONFLICT ").AppendColumnNames(primaryKey.Properties, true).Append(" DO UPDATE SET ")
+                        .AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=excluded.{property.Name}")));
+            }
+            stringBuilder.AppendLine(";");
+
+
+            // Select the output
+            stringBuilder.Append("SELECT _$action, ")
+                    .AppendJoin(", ", primaryKey.Properties.Select(m => SourceAliaser(m.GetColumnName()))).Append(", ")
+                    .AppendJoin(", ", properties.Select(m => TargetAliaser(m.GetColumnName())))
+                    .AppendLine(" FROM EntityFrameworkManipulationSync;")
+                .Append("COMMIT;");
+        }
+
+        private static async Task AddSqlServerSyncCommand<TEntity>(
+            this StringBuilder stringBuilder,
+            DbContext dbContext,
+            IEntityType entityType,
+            IReadOnlyCollection<TEntity> source,
+            bool ignoreUpdates,
+            bool ignoreDeletions,
+            string tableName,
+            IKey primaryKey,
+            IProperty[] properties,
+            IProperty[] propertiesToUpdate,
+            IProperty[] propertiesToInsert,
+            List<object> parameters,
+            string targetCommand,
+            CancellationToken cancellationToken)
+            where TEntity : class, new()
+        {
+            ManipulationExtensionsConfiguration configuration = dbContext.GetConfiguration();
+
+            string userDefinedTableTypeName = null;
+            if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
+            {
+                userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
+            }
+
+            stringBuilder
+                .AppendLine("WITH TargetData AS (").Append(targetCommand).AppendLine(")")
+                .AppendLine("MERGE INTO TargetData AS target ")
+                .Append("USING ");
+
+            if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
+            {
+                stringBuilder.AppendTableValuedParameter(userDefinedTableTypeName, properties, source, parameters);
+            }
+            else
+            {
+                stringBuilder.Append("(").AppendSelectFromInlineTable(properties, source, parameters, "x").Append(")");
+            }
+
+            stringBuilder.Append(" AS source ON ").AppendJoinCondition(primaryKey).AppendLine(" ")
+                .Append("WHEN NOT MATCHED BY TARGET THEN INSERT ")
+                .AppendColumnNames(propertiesToInsert, wrapInParanthesis: true).Append("VALUES ")
+                .AppendColumnNames(propertiesToInsert, wrapInParanthesis: true, identifierPrefix: "source")
+                .AppendLine();
+
+            if (!ignoreUpdates)
+            {
+                stringBuilder.Append("WHEN MATCHED THEN UPDATE SET ").AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=source.{property.Name}"))).AppendLine();
+            }
+
+            if (!ignoreDeletions)
+            {
+                stringBuilder.AppendLine("WHEN NOT MATCHED BY SOURCE THEN DELETE");
+            }
+
+            stringBuilder
+                .Append("OUTPUT $action, ")
+                .AppendColumnNames(primaryKey.Properties, wrapInParanthesis: false, "inserted").Append(", ")
+                .AppendColumnNames(properties, wrapInParanthesis: false, "deleted").Append(";");
         }
     }
 }
