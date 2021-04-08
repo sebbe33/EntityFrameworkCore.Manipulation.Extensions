@@ -69,7 +69,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
             IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
 
-            string tableName = entityType.GetTableName();
             IKey primaryKey = entityType.FindPrimaryKey();
             IProperty[] properties = entityType.GetProperties().ToArray();
             IProperty[] nonPrimaryKeyProperties = properties.Except(primaryKey.Properties).ToArray();
@@ -86,10 +85,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             if (isSqlite)
             {
                 stringBuilder.AddSqliteSyncCommand(
-                    source,
+                    entityType: entityType,
+                    source: source,
                     ignoreUpdates: ignoreUpdates,
                     ignoreDeletions: ignoreDeletions,
-                    tableName: tableName,
                     primaryKey: primaryKey,
                     properties: properties,
                     propertiesToUpdate: propertiesToUpdate,
@@ -105,7 +104,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                     source: source,
                     ignoreUpdates: ignoreUpdates,
                     ignoreDeletions: ignoreDeletions,
-                    tableName: tableName,
                     primaryKey: primaryKey,
                     properties: properties,
                     propertiesToUpdate: propertiesToUpdate,
@@ -187,10 +185,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
         private static void AddSqliteSyncCommand<TEntity>(
             this StringBuilder stringBuilder,
+            IEntityType entityType,
             IReadOnlyCollection<TEntity> source,
             bool ignoreUpdates,
             bool ignoreDeletions,
-            string tableName,
             IKey primaryKey,
             IProperty[] properties,
             IProperty[] propertiesToUpdate,
@@ -199,6 +197,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             string targetCommand)
             where TEntity : class, new()
         {
+            string tableName = entityType.GetTableName();
             string SourceAliaser(string columnName) => $"source_{columnName}";
             string TargetAliaser(string columnName) => $"target_{columnName}";
 
@@ -272,7 +271,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             IReadOnlyCollection<TEntity> source,
             bool ignoreUpdates,
             bool ignoreDeletions,
-            string tableName,
             IKey primaryKey,
             IProperty[] properties,
             IProperty[] propertiesToUpdate,
@@ -290,40 +288,85 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
             }
 
-            stringBuilder
-                .AppendLine("WITH TargetData AS (").Append(targetCommand).AppendLine(")")
-                .AppendLine("MERGE INTO TargetData AS target ")
-                .Append("USING ");
-
-            if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
+            if (configuration.SqlServerConfiguration.UseMerge)
             {
-                stringBuilder.AppendTableValuedParameter(userDefinedTableTypeName, properties, source, parameters);
+                stringBuilder
+                    .AppendLine("WITH TargetData AS (").Append(targetCommand).AppendLine(")")
+                    .AppendLine("MERGE INTO TargetData AS target ")
+                    .Append("USING ");
+
+                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
+                {
+                    stringBuilder.AppendTableValuedParameter(userDefinedTableTypeName, properties, source, parameters);
+                }
+                else
+                {
+                    stringBuilder.Append("(").AppendSelectFromInlineTable(properties, source, parameters, "x").Append(")");
+                }
+
+                stringBuilder.Append(" AS source ON ").AppendJoinCondition(primaryKey).AppendLine(" ")
+                    .Append("WHEN NOT MATCHED BY TARGET THEN INSERT ")
+                    .AppendColumnNames(propertiesToInsert, wrapInParanthesis: true).Append("VALUES ")
+                    .AppendColumnNames(propertiesToInsert, wrapInParanthesis: true, identifierPrefix: "source")
+                    .AppendLine();
+
+                if (!ignoreUpdates)
+                {
+                    stringBuilder.Append("WHEN MATCHED THEN UPDATE SET ").AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=source.{property.Name}"))).AppendLine();
+                }
+
+                if (!ignoreDeletions)
+                {
+                    stringBuilder.AppendLine("WHEN NOT MATCHED BY SOURCE THEN DELETE");
+                }
+
+                stringBuilder
+                    .Append("OUTPUT $action, ")
+                    .AppendColumnNames(primaryKey.Properties, wrapInParanthesis: false, "inserted").Append(", ")
+                    .AppendColumnNames(properties, wrapInParanthesis: false, "deleted").Append(";");
             }
             else
             {
-                stringBuilder.Append("(").AppendSelectFromInlineTable(properties, source, parameters, "x").Append(")");
+                string tableName = entityType.GetSchemaQualifiedTableName();
+                stringBuilder
+                    .AppendLine("SET NOCOUNT ON;")
+                    .AppendLine("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;")
+                    .AppendLine("BEGIN TRANSACTION;");
+
+                // UPDATE
+                if (!ignoreUpdates)
+                {
+                    stringBuilder.Append("DECLARE @ExistingEntries TABLE(...);");
+                    stringBuilder
+                        .AppendLine("WITH target AS (").Append(targetCommand).AppendLine(")")
+                        .Append("UPDATE t SET ").AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=source.{property.Name}"))).AppendLine()
+                        .Append("OUTPUT ")
+                            .AppendColumnNames(primaryKey.Properties, wrapInParanthesis: false, "deleted")
+                            .AppendLine("INTO @ExistingEntries")
+                        .Append("FROM target AS t INNER JOIN source ON ").AppendJoinCondition(primaryKey).AppendLine(";");
+                }
+
+                // INSERT
+                string tableToCheckForExistence = ignoreUpdates ? tableName : "@ExistingEntries";
+                stringBuilder
+                    .Append("INSERT INTO ").Append(tableName).AppendLine()
+                    .Append("SELECT ").AppendJoin(",", propertiesToInsert.Select(m => m.GetColumnName())).AppendLine()
+                    .Append("FROM source WHERE NOT EXISTS (SELECT 1 FROM ")
+                        .Append(tableToCheckForExistence).Append(" WHERE ")
+                        .AppendJoinCondition(primaryKey, rightTableAlias: tableName).AppendLine(");");
+
+                // DELETE
+                if (!ignoreDeletions)
+                {
+                    stringBuilder
+                        .AppendLine("DELETE FROM target")
+                        .AppendLine("LEFT JOIN source ON ").AppendJoinCondition(primaryKey).AppendLine()
+                        .Append("WHERE NOT (").AppendJoin(" AND ", primaryKey.Properties.Select(pkProp => $"source.{pkProp.GetColumnName()} IS NOT NULL")).AppendLine(")");
+                }
+
+
+                stringBuilder.Append("COMMIT TRANSACTION;");
             }
-
-            stringBuilder.Append(" AS source ON ").AppendJoinCondition(primaryKey).AppendLine(" ")
-                .Append("WHEN NOT MATCHED BY TARGET THEN INSERT ")
-                .AppendColumnNames(propertiesToInsert, wrapInParanthesis: true).Append("VALUES ")
-                .AppendColumnNames(propertiesToInsert, wrapInParanthesis: true, identifierPrefix: "source")
-                .AppendLine();
-
-            if (!ignoreUpdates)
-            {
-                stringBuilder.Append("WHEN MATCHED THEN UPDATE SET ").AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=source.{property.Name}"))).AppendLine();
-            }
-
-            if (!ignoreDeletions)
-            {
-                stringBuilder.AppendLine("WHEN NOT MATCHED BY SOURCE THEN DELETE");
-            }
-
-            stringBuilder
-                .Append("OUTPUT $action, ")
-                .AppendColumnNames(primaryKey.Properties, wrapInParanthesis: false, "inserted").Append(", ")
-                .AppendColumnNames(properties, wrapInParanthesis: false, "deleted").Append(";");
         }
     }
 }
