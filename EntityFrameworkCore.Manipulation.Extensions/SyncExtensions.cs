@@ -70,7 +70,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
             IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
 
-            string tableName = entityType.GetTableName();
+            string tableName = entityType.GetSchemaQualifiedTableName();
             IKey primaryKey = entityType.FindPrimaryKey();
             IProperty[] properties = entityType.GetProperties().ToArray();
             IProperty[] nonPrimaryKeyProperties = properties.Except(primaryKey.Properties).ToArray();

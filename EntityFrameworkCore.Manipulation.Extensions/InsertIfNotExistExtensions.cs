@@ -45,7 +45,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
             IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
 
-            string tableName = entityType.GetTableName();
+            string tableName = entityType.GetSchemaQualifiedTableName();
             IKey primaryKey = entityType.FindPrimaryKey();
             IProperty[] properties = entityType.GetProperties().ToArray();
 
@@ -77,7 +77,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 }
 
                 stringBuilder.AppendLine("INSERT INTO ").Append(tableName).AppendColumnNames(properties, wrapInParanthesis: true)
-                             .AppendLine("OUTPUT INSERTED.* ");
+                             .AppendLine("OUTPUT ").AppendColumnNames(properties, false, "inserted");
 
                 if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities))
                 {

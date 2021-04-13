@@ -92,7 +92,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             var stringBuilder = new StringBuilder(1000);
 
             IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
-            string tableName = entityType.GetTableName();
+            string tableName = entityType.GetSchemaQualifiedTableName();
             IKey primaryKey = entityType.FindPrimaryKey();
             IProperty[] properties = entityType.GetProperties().ToArray();
             IProperty[] nonPrimaryKeyProperties = properties.Except(primaryKey.Properties).ToArray();
@@ -159,7 +159,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 stringBuilder
                     .Append("UPDATE ").Append(tableName).AppendLine(" SET")
                         .AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}={inlineTableAlias}.{property.Name}"))).AppendLine()
-                    .AppendLine("OUTPUT inserted.*")
+                    .AppendLine("OUTPUT ").AppendColumnNames(properties, false, "inserted")
                     .Append(fromJoinCommand);
             }
 
