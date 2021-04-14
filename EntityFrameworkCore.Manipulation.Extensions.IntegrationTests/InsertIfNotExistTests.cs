@@ -19,6 +19,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task InsertIfNotExistAsync_ShouldNotInsertEntities_WhenNoEntitiesGiven(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, testConfiguration: testConfiguration);
@@ -39,6 +40,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task InsertIfNotExistAsync_ShouldInsertAndReturnAllEntitiest_WhenThereAreNoExistingEntities(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] expectedEntitiesToBeInserted = new[]
@@ -66,6 +68,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task InsertIfNotExistAsync_ShouldInsertAndReturnEntitiesWhichNotExist_WhenThereAreExistingEntities(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]

@@ -83,6 +83,11 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
                 context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseMemoryOptimizedTableTypes = true;
                 context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseTableValuedParametersParameterCountTreshold = 0;
             }
+            else if (testConfiguration == TestConfiguration.SqlServerOutputInto)
+            {
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.EntityTypesWithTriggers.Add(nameof(TestEntity));
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.EntityTypesWithTriggers.Add(nameof(TestEntityCompositeKey));
+            }
 
             return context;
         }

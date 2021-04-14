@@ -70,6 +70,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             }
             else
             {
+                bool outputInto = configuration.SqlServerConfiguration.EntityTypesWithTriggers.Contains(entityType.ClrType.Name);
+                if (outputInto)
+                {
+                    stringBuilder.AppendOutputTempTableDeclaration(insertedProperties: properties, deletedProperties: null);
+                }
+
                 string userDefinedTableTypeName = null;
                 if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities))
                 {
@@ -77,7 +83,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 }
 
                 stringBuilder.AppendLine("INSERT INTO ").Append(tableName).AppendColumnNames(properties, wrapInParanthesis: true)
-                             .AppendLine("OUTPUT ").AppendColumnNames(properties, false, "inserted");
+                             .AppendOutputClauseLine(insertedProperties: properties, deletedProperties: null, outputInto);
 
                 if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities))
                 {
@@ -95,7 +101,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 // sub-query to filter out entities which already exist
                 stringBuilder.Append("SELECT 1 FROM ").Append(tableName).Append(" AS target WHERE ")
                     .AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"target.{property.Name}=source.{property.Name}")))
-                    .Append(");");
+                    .AppendLine(");");
+
+                if (outputInto)
+                {
+                    stringBuilder.AppendOutputSelect(insertedProperties: properties, deletedProperties: null).AppendLine(";");
+                }
             }
 
             return await dbSet.FromSqlRaw(stringBuilder.ToString(), parameters.ToArray())

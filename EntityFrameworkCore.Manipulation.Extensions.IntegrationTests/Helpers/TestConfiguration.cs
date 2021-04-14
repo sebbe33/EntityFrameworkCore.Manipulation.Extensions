@@ -6,5 +6,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
         Default,
         SqlServerRegularTableTypes,
         SqlServerMemoryOptimizedTableTypes,
+        SqlServerOutputInto,
     }
 }
