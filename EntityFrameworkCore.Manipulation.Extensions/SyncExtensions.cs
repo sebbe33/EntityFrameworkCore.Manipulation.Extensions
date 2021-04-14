@@ -70,7 +70,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
             IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
 
-            string tableName = entityType.GetTableName();
+            string tableName = entityType.GetSchemaQualifiedTableName();
             IKey primaryKey = entityType.FindPrimaryKey();
             IProperty[] properties = entityType.GetProperties().ToArray();
             IProperty[] nonPrimaryKeyProperties = properties.Except(primaryKey.Properties).ToArray();
@@ -153,6 +153,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             }
             else
             {
+                bool outputInto = configuration.SqlServerConfiguration.EntityTypesWithTriggers.Contains(entityType.ClrType.Name);
+                if (outputInto)
+                {
+                    stringBuilder.AppendOutputTempTableDeclaration(insertedProperties: primaryKey.Properties, deletedProperties: properties, includeAction: true);
+                }
+
                 string userDefinedTableTypeName = null;
                 if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
                 {
@@ -190,9 +196,17 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 }
 
                 stringBuilder
-                    .Append("OUTPUT $action, ")
-                    .AppendColumnNames(primaryKey.Properties, wrapInParanthesis: false, "inserted").Append(", ")
-                    .AppendColumnNames(properties, wrapInParanthesis: false, "deleted").Append(";");
+                    .AppendOutputClauseLine(
+                        insertedProperties: primaryKey.Properties,
+                        deletedProperties: properties,
+                        outputInto,
+                        includeAction: true)
+                    .AppendLine(";");
+
+                if (outputInto)
+                {
+                    stringBuilder.AppendOutputSelect(insertedProperties: primaryKey.Properties, deletedProperties: properties, includeAction: true).AppendLine(";");
+                }
             }
 
             using Microsoft.EntityFrameworkCore.Storage.RelationalDataReader reader = await dbContext.Database.ExecuteSqlQueryAsync(stringBuilder.ToString(), parameters.ToArray(), cancellationToken);
