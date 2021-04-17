@@ -16,7 +16,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
     public static class DatabaseFacadeExtensions
     {
-        private const string TableTypeGeneratorVersion = "1"; // This should be rev'd when the creation code for table types has changed
+        private const string TableTypeGeneratorVersion = "2"; // This should be rev'd when the creation code for table types has changed
 
         private static readonly ConcurrentDictionary<(string DatabaseName, string EntityTableName, string Configuration), string> UserDefinedTableTypeCache
             = new ConcurrentDictionary<(string, string, string), string>();
@@ -85,7 +85,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 schemaBuilder.Append(property.ColumnName).Append(' ').Append(property.ColumnType).Append(',');
             }
 
-            schemaBuilder.Length--; // remove the last ","
+            // We always append __Action for use as output variable when performing syncs. This field is very small, and as such it's a low cost to pay
+            // instead of creating a similar with just the addition of the action field.
+            schemaBuilder.Append("__Action CHAR(6)");
 
             string schema = schemaBuilder.ToString();
             string schemaHash = schema.GetDeterministicStringHash();

@@ -109,6 +109,12 @@
             string userDefinedTableTypeName,
             IProperty[] properties,
             IEnumerable<TEntity> entities,
+            IList<object> parameters) => stringBuilder.Append(CreateTableValuedParameter(userDefinedTableTypeName, properties, entities, parameters));
+
+        public static string CreateTableValuedParameter<TEntity>(
+            string userDefinedTableTypeName,
+            IProperty[] properties,
+            IEnumerable<TEntity> entities,
             IList<object> parameters)
         {
             var dataTable = new DataTable();
@@ -150,9 +156,7 @@
             };
             parameters.Add(parameter);
 
-            return stringBuilder.Append(parameter.ParameterName);
+            return parameter.ParameterName;
         }
-
-
     }
 }
