@@ -286,10 +286,16 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
             if (configuration.SqlServerConfiguration.UseMerge)
             {
+                bool outputInto = configuration.SqlServerConfiguration.EntityTypesWithTriggers.Contains(entityType.ClrType.Name);
                 string userDefinedTableTypeName = null;
-                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
+                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source) || outputInto)
                 {
                     userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
+                }
+
+                if (outputInto)
+                {
+                    stringBuilder.AppendOutputDeclaration(userDefinedTableTypeName);
                 }
 
                 stringBuilder
@@ -326,6 +332,11 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                     .Append("OUTPUT ")
                     .AppendActionOutputColumns(primaryKey, nonPrimaryKeyProperties, column => $"inserted.{column}", column => $"deleted.{column}", "$action")
                     .Append(";");
+
+                if (outputInto)
+                {
+                    stringBuilder.AppendOutputSelect(properties, includeAction: true).AppendLine(";");
+                }
             }
             else
             {

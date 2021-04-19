@@ -1,4 +1,4 @@
-﻿namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
+namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 {
     using Microsoft.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore.Metadata;
@@ -13,6 +13,8 @@
 
     internal static class SqlCommandBuilderExtensions
     {
+        
+
         public static StringBuilder AppendColumnNames(
             this StringBuilder stringBuilder,
             IReadOnlyCollection<IProperty> properties,
@@ -157,6 +159,47 @@
             parameters.Add(parameter);
 
             return parameter.ParameterName;
+        }
+
+        public static StringBuilder AppendOutputDeclaration(this StringBuilder stringBuilder, string userDefinedTableTypeName) =>
+            stringBuilder.Append("DECLARE @tempOutput ").Append(userDefinedTableTypeName).AppendLine(";");
+
+        public static StringBuilder AppendOutputClauseLine(
+            this StringBuilder stringBuilder,
+            IReadOnlyCollection<IProperty> properties,
+            bool outputIntoTempTable,
+            bool includeAction = false)
+        {
+            stringBuilder.Append("OUTPUT ");
+
+            if (includeAction)
+            {
+                stringBuilder.Append("$action AS ").Append(DatabaseFacadeExtensions.TempOutputTableActionColumn).Append(", ");
+            }
+
+            stringBuilder.AppendColumnNames(properties, false, identifierPrefix: "deleted");
+
+            if (outputIntoTempTable)
+            {
+                stringBuilder.Append(" INTO @tempOutput");
+            }
+
+            return stringBuilder.AppendLine();
+        }
+
+        public static StringBuilder AppendOutputSelect(this StringBuilder stringBuilder,
+            IReadOnlyCollection<IProperty> properties,
+            bool includeAction = false)
+        {
+            stringBuilder.Append("SELECT ");
+
+            if (includeAction)
+            {
+                stringBuilder.Append(DatabaseFacadeExtensions.TempOutputTableActionColumn).Append(", ");
+            }
+
+            return stringBuilder.AppendColumnNames(properties, wrapInParanthesis: false)
+                .Append(" FROM @tempOutput ");
         }
     }
 }

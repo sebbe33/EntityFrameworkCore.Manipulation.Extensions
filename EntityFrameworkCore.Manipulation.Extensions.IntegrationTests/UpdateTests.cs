@@ -17,6 +17,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoEntitiesInDbNorInput(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, testConfiguration: testConfiguration); // Note: no seed data => no entities exist
@@ -34,6 +35,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoEntitiesInInput(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
@@ -57,6 +59,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoMatchingEntitiesBasedOnKey(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
@@ -85,6 +88,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoMatchingEntitiesBasedOnCondition(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
@@ -114,6 +118,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnUpdatedCollection_WhenAllEntitiesAreMatchingWithoutCondition(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
@@ -141,6 +146,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnAffectedUpdatedCollection_WhenASubsetOfEntitiesAreMatchingWithoutCondition(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
@@ -170,6 +176,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnAffectedUpdatedCollection_WhenASubsetOfEntitiesAreMatchingWithCondition(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
@@ -202,6 +209,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnCollectionWithOnlyIncludedPropertiesUpdated_WhenEntitiesMatchAndIncludedPropertyExpresionsArePassed(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
@@ -307,7 +315,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataTestMethod]
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
-        public async Task UpdateAsync_ShouldReturnCollectionWithOnlyNonExcludedPropertiesUpdated_WhenEntitiesMatchAndIncludedPropertyNamesArePassed(DbProvider provider)
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        public async Task UpdateAsync_ShouldReturnCollectionWithOnlyNonExcludedPropertiesUpdated_WhenEntitiesMatchAndIncludedPropertyNamesArePassed(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntityCompositeKey[] existingEntities = new[]
             {
@@ -320,7 +331,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
                 new TestEntityCompositeKey { IdPartA = "Should not be updated 1", IdPartB = "B", IntTestValue = -1, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow.AddDays(1), LongTestValue = 781 },
                 new TestEntityCompositeKey { IdPartA = "Should be updated 3", IdPartB = "B", IntTestValue = 561235164, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow.AddDays(1), LongTestValue = 165465132165 },
             };
-            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities);
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: existingEntities, testConfiguration: testConfiguration);
 
             // Exclude int and bool values - they are expected to not be updated based on the mocked data.
             ExclusionBuilder<TestEntityCompositeKey> exclusionBuilder = new ExclusionBuilder<TestEntityCompositeKey>()

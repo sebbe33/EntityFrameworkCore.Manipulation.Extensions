@@ -44,13 +44,21 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Configuration
         public int DefaultHashIndexBucketCount { get; set; } = 1000;
 
         /// <summary>
-        /// Gets or sets a dictionary of Hash Index Bucket Counts to Entitiy Types. This can be used to specifiy the Bucket Count
+        /// Gets a dictionary of Hash Index Bucket Counts to Entitiy Types. This can be used to specifiy the Bucket Count
         /// when creating a Hash Index for a Memory-Optimized Table Type for a specific Entity Type. If a count for a given type
         /// is not set, the <see cref="DefaultHashIndexBucketCount"/> will be used. The general guidance is for this to be set to
         /// 1.5x - 2x the number of estimated max rows used as input to any of the extension methods for this lib. For more information, refer to
         /// <see cref="https://docs.microsoft.com/en-us/sql/relational-databases/sql-server-index-design-guide?view=sql-server-ver15#configuring_bucket_count"/>.
         /// </summary>
-        public Dictionary<string, int> HashIndexBucketCountsByEntityType { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, int> HashIndexBucketCountsByEntityType { get; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Gets a collection of the entity types which have triggers defined. The library uses OUTPUT statements to return back the
+        /// modified data. The OUTPUT statement does not work out-of-box with triggers; the output has to be placed into a temp table and then return.
+        /// By registering an entity type here, that's what will happen. Note that if the trigger on an entity modifies the effected entities,
+        /// the latest state of the entity will not be returned. Only the output from the actual library operation will be returned.
+        /// </summary>
+        public ISet<string> EntityTypesWithTriggers { get; } = new HashSet<string>();
 
         internal Dictionary<Type, ITableValuedParameterInterceptor> TvpInterceptors { get; } = new Dictionary<Type, ITableValuedParameterInterceptor>();
 

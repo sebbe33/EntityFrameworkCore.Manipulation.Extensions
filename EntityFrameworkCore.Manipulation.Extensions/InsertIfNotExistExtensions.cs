@@ -45,7 +45,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
             IEntityType entityType = dbContext.Model.FindEntityType(typeof(TEntity));
 
-            string tableName = entityType.GetTableName();
+            string tableName = entityType.GetSchemaQualifiedTableName();
             IKey primaryKey = entityType.FindPrimaryKey();
             IProperty[] properties = entityType.GetProperties().ToArray();
 
@@ -70,14 +70,21 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             }
             else
             {
+                bool outputInto = configuration.SqlServerConfiguration.EntityTypesWithTriggers.Contains(entityType.ClrType.Name);
+
                 string userDefinedTableTypeName = null;
-                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities))
+                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities) || outputInto)
                 {
                     userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
                 }
 
+                if (outputInto)
+                {
+                    stringBuilder.AppendOutputDeclaration(userDefinedTableTypeName);
+                }
+
                 stringBuilder.AppendLine("INSERT INTO ").Append(tableName).AppendColumnNames(properties, wrapInParanthesis: true)
-                             .AppendLine("OUTPUT INSERTED.* ");
+                             .AppendOutputClauseLine(properties,  outputInto);
 
                 if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities))
                 {
@@ -95,7 +102,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 // sub-query to filter out entities which already exist
                 stringBuilder.Append("SELECT 1 FROM ").Append(tableName).Append(" AS target WHERE ")
                     .AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"target.{property.Name}=source.{property.Name}")))
-                    .Append(");");
+                    .AppendLine(");");
+
+                if (outputInto)
+                {
+                    stringBuilder.AppendOutputSelect(properties).AppendLine(";");
+                }
             }
 
             return await dbSet.FromSqlRaw(stringBuilder.ToString(), parameters.ToArray())

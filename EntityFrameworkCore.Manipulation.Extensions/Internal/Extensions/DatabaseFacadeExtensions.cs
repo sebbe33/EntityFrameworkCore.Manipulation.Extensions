@@ -16,6 +16,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
     public static class DatabaseFacadeExtensions
     {
+        internal const string TempOutputTableActionColumn = "__Action";
+
         private const string TableTypeGeneratorVersion = "2"; // This should be rev'd when the creation code for table types has changed
 
         private static readonly ConcurrentDictionary<(string DatabaseName, string EntityTableName, string Configuration), string> UserDefinedTableTypeCache
@@ -87,7 +89,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
             // We always append __Action for use as output variable when performing syncs. This field is very small, and as such it's a low cost to pay
             // instead of creating a similar with just the addition of the action field.
-            schemaBuilder.Append("__Action CHAR(6)");
+            schemaBuilder.Append(TempOutputTableActionColumn).Append(" CHAR(6)");
 
             string schema = schemaBuilder.ToString();
             string schemaHash = schema.GetDeterministicStringHash();
