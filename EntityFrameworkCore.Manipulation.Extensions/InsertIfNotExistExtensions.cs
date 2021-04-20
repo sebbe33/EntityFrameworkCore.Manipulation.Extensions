@@ -83,12 +83,15 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                     stringBuilder.AppendOutputDeclaration(userDefinedTableTypeName);
                 }
 
-                stringBuilder.AppendLine("INSERT INTO ").Append(tableName).AppendColumnNames(properties, wrapInParanthesis: true)
-                             .AppendOutputClauseLine(properties,  outputInto);
+                stringBuilder
+                    .AppendLine("SET NOCOUNT ON;")
+                    .AppendLine("INSERT INTO ").Append(tableName).AppendColumnNames(properties, wrapInParanthesis: true)
+                    .AppendOutputClauseLine(properties, outputInto, identifierPrefix: "inserted");
 
                 if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities))
                 {
-                    stringBuilder.Append("SELECT * FROM ")
+                    stringBuilder.Append("SELECT ").AppendColumnNames(properties, wrapInParanthesis: false)
+                        .Append(" FROM ")
                         .AppendTableValuedParameter(userDefinedTableTypeName, properties, entities, parameters)
                         .AppendLine(" AS source");
                 }

@@ -159,9 +159,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 string inlineTableAlias = joinAliasRegex.Match(fromJoinCommand).Value.Trim();
 
                 stringBuilder
+                    .AppendLine("SET NOCOUNT ON;")
                     .Append("UPDATE ").Append(tableName).AppendLine(" SET")
                         .AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}={inlineTableAlias}.{property.Name}"))).AppendLine()
-                    .AppendOutputClauseLine(properties, outputInto)
+                    .AppendOutputClauseLine(properties, outputInto, identifierPrefix: "inserted")
                     .Append(fromJoinCommand)
                     .AppendLine(";");
 

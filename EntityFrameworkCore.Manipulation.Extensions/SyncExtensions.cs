@@ -288,17 +288,20 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             {
                 bool outputInto = configuration.SqlServerConfiguration.EntityTypesWithTriggers.Contains(entityType.ClrType.Name);
                 string userDefinedTableTypeName = null;
-                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source) || outputInto)
+                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
                 {
                     userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
                 }
 
+                string outputType = null;
                 if (outputInto)
                 {
-                    stringBuilder.AppendOutputDeclaration(userDefinedTableTypeName);
+                    outputType = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken, includeActionColumn: true);
+                    stringBuilder.AppendOutputDeclaration(outputType);
                 }
 
                 stringBuilder
+                    .AppendLine("SET NOCOUNT ON;")
                     .AppendLine("WITH TargetData AS (").Append(targetCommand).AppendLine(")")
                     .AppendLine("MERGE INTO TargetData AS target ")
                     .Append("USING ");
@@ -358,9 +361,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                         .AppendLine("WITH target AS (")
                             .Append(targetCommand).AppendLine(")")
                         .AppendLine("DELETE FROM target")
-                        .Append("OUTPUT 'DELETE' AS __Action, ")
-                            .AppendColumnNames(properties, wrapInParanthesis: false, "deleted")
-                            .Append(" INTO ").AppendLine("@DeleteResult")
+                        .Append("OUTPUT ").AppendColumnNames(properties, wrapInParanthesis: false, "deleted").Append(" INTO ").AppendLine("@DeleteResult")
                         .Append("WHERE NOT EXISTS (SELECT 1 FROM ").Append(tvpParameter).Append(" source WHERE ").AppendJoinCondition(primaryKey).AppendLine(");");
                 }
 
@@ -371,40 +372,36 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                         .Append("DECLARE @UpdateResult ").Append(userDefinedTableTypeName).AppendLine(";")
                         .Append("UPDATE ").Append(tableName).AppendLine(" SET")
                             .AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=source.{property.Name}"))).AppendLine()
-                        .Append("OUTPUT 'UPDATE' AS __Action, ")
-                            .AppendColumnNames(properties, wrapInParanthesis: false, "deleted")
-                            .Append(" INTO ").AppendLine("@UpdateResult")
+                        .Append("OUTPUT ").AppendColumnNames(properties, wrapInParanthesis: false, "deleted").Append(" INTO ").AppendLine("@UpdateResult")
                         .Append("FROM ").Append(tableName).Append(" AS target INNER JOIN ").Append(tvpParameter).Append(" source ON ").AppendJoinCondition(primaryKey).AppendLine(";");
                 }
 
                 // INSERT if not exists in taget table
                 string tableToCheckForExistence = ignoreUpdates ? tableName : "@UpdateResult";
                 stringBuilder
-                    .Append("INSERT INTO ").Append(tableName).AppendLine()
-                    .Append("OUTPUT 'INSERT' AS __Action, ")
-                        .AppendColumnNames(properties, wrapInParanthesis: false, "deleted")
-                        .Append(" INTO ").AppendLine("@InsertResult")
+                    .Append("INSERT INTO ").Append(tableName).AppendColumnNames(propertiesToInsert, wrapInParanthesis: true).AppendLine()
+                    .Append("OUTPUT ").AppendColumnNames(properties, wrapInParanthesis: false, "inserted").Append(" INTO ").AppendLine("@InsertResult")
                     .Append("SELECT ").AppendJoin(",", propertiesToInsert.Select(m => m.GetColumnName())).AppendLine()
                     .Append("FROM ").Append(tvpParameter).AppendLine(" source")
                     .Append("WHERE NOT EXISTS (SELECT 1 FROM ")
-                        .Append(tableToCheckForExistence).Append(" WHERE ")
-                        .AppendJoinCondition(primaryKey, rightTableAlias: tableName).AppendLine(");");
+                        .Append(tableToCheckForExistence).Append(" target WHERE ")
+                        .AppendJoinCondition(primaryKey).AppendLine(");");
 
                 // Return the sync result
-                stringBuilder.Append("SELECT ").AppendColumnNames(properties, wrapInParanthesis: false).AppendLine(" FROM @InsertResult");
+                stringBuilder.Append("SELECT 'INSERT' AS __Action, ").AppendColumnNames(properties, wrapInParanthesis: false).AppendLine(" FROM @InsertResult");
 
                 if (!ignoreUpdates)
                 {
                     stringBuilder
                         .AppendLine("UNION")
-                        .Append("SELECT ").AppendColumnNames(properties, wrapInParanthesis: false).AppendLine(" FROM @UpdateResult");
+                        .Append("SELECT 'UPDATE' AS __Action, ").AppendColumnNames(properties, wrapInParanthesis: false).AppendLine(" FROM @UpdateResult");
                 }
 
                 if (!ignoreDeletions)
                 {
                     stringBuilder
                         .AppendLine("UNION")
-                        .Append("SELECT ").AppendColumnNames(properties, wrapInParanthesis: false).AppendLine(" FROM @DeleteResult");
+                        .Append("SELECT 'DELETE' AS __Action,").AppendColumnNames(properties, wrapInParanthesis: false).AppendLine(" FROM @DeleteResult");
                 }
 
                 stringBuilder
@@ -421,22 +418,25 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             Func<string, string> deletedAliaser,
             string actionColumnName)
         {
-            stringBuilder.Append(actionColumnName);
+            stringBuilder.Append(actionColumnName).Append(", ");
 
             foreach (IProperty keyProperty in primaryKey.Properties)
             {
                 string columnName = keyProperty.GetColumnName();
-                stringBuilder.Append("CASE WHEN ").Append(actionColumnName).Append(" = 'INSERT' THEN ")
+                stringBuilder.Append("CASE ").Append(actionColumnName)
+                    .Append(" WHEN 'INSERT' THEN ")
                     .Append(insertedAliaser(columnName))
-                    .Append(" ELSE deleted.").Append(deletedAliaser(columnName))
-                    .Append(" END AS ").Append(columnName);
+                    .Append(" ELSE ").Append(deletedAliaser(columnName))
+                    .Append(" END AS ").Append(columnName).Append(',');
             }
 
             if (nonPrimaryKeyProperties.Count > 0)
             {
-                stringBuilder
-                    .Append(',')
-                    .AppendJoin(',', nonPrimaryKeyProperties.Select(prop => deletedAliaser(prop.GetColumnName())));
+                stringBuilder.AppendJoin(',', nonPrimaryKeyProperties.Select(prop => deletedAliaser(prop.GetColumnName())));
+            }
+            else
+            {
+                stringBuilder.Length--; // Remove the last , if there are no additional properties
             }
 
             return stringBuilder;

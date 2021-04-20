@@ -47,7 +47,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             this DatabaseFacade databaseFacade,
             IEntityType entityType,
             SqlServerManipulationExtensionsConfiguration configuration,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool includeActionColumn = false)
         {
             var stringBuilder = new StringBuilder();
             string entityTableName = entityType.GetTableName();
@@ -64,7 +65,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
             // The cache configuration is a per-entity entry that defines the configuration that was used to set up the table type.
             // The configuration may change durning run-time, and as such we must account for that a table type may not be available when it changes. 
-            string cacheConfiguration = $"{configuration.UseMemoryOptimizedTableTypes}-{hashBucketCount}";
+            string cacheConfiguration = $"{configuration.UseMemoryOptimizedTableTypes}-{hashBucketCount}-{includeActionColumn}";
 
             // Check if the type, with current configuration, has already been successfully created in the current database. If so, we don't need to generate the command to create the type.
             if (UserDefinedTableTypeCache.TryGetValue((fullyQualifiedDatabaseName, entityTableName, cacheConfiguration), out string userDefinedTableTypeName))
@@ -87,14 +88,20 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 schemaBuilder.Append(property.ColumnName).Append(' ').Append(property.ColumnType).Append(',');
             }
 
-            // We always append __Action for use as output variable when performing syncs. This field is very small, and as such it's a low cost to pay
-            // instead of creating a similar with just the addition of the action field.
-            schemaBuilder.Append(TempOutputTableActionColumn).Append(" CHAR(6)");
+            // Check if we should append __Action for use as output variable if performing syncs.
+            if (includeActionColumn)
+            {
+                schemaBuilder.Append(TempOutputTableActionColumn).Append(" CHAR(6)");
+            }
+            else
+            {
+                schemaBuilder.Length--; // Remove last ,
+            }
 
             string schema = schemaBuilder.ToString();
             string schemaHash = schema.GetDeterministicStringHash();
 
-            userDefinedTableTypeName = $"{entityTableName}_v{TableTypeGeneratorVersion}_{schemaHash}";
+            userDefinedTableTypeName = $"{entityTableName}_v{TableTypeGeneratorVersion}{(includeActionColumn ? "a" : string.Empty)}_{schemaHash}";
 
             string typeIdClause = $"TYPE_ID('{userDefinedTableTypeName}')";
 
@@ -123,7 +130,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 }
 
                 // Override the table name + Type ID to be a memory type
-                userDefinedTableTypeName = $"{entityTableName}_v{TableTypeGeneratorVersion}m_{schemaHash}";
+                userDefinedTableTypeName = $"{entityTableName}_v{TableTypeGeneratorVersion}m{(includeActionColumn ? "a" : string.Empty)}_{schemaHash}";
                 typeIdClause = $"TYPE_ID('{userDefinedTableTypeName}')";
 
                 stringBuilder

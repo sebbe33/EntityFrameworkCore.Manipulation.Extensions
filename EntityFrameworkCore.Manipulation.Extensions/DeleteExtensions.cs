@@ -1,4 +1,4 @@
-﻿namespace EntityFrameworkCore.Manipulation.Extensions
+namespace EntityFrameworkCore.Manipulation.Extensions
 {
     using EntityFrameworkCore.Manipulation.Extensions.Internal;
     using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
@@ -59,6 +59,7 @@
             else
             {
                 stringBuilder
+                    .AppendLine("SET NOCOUNT ON;")
                     .AppendLine("WITH DeleteTarget AS (").Append(targetCommand).AppendLine(")")
                     .AppendLine("DELETE FROM DeleteTarget ")
                     .AppendLine("OUTPUT DELETED.* ");

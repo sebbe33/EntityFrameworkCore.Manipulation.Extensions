@@ -77,6 +77,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Configuration
         /// especially in regards to IO. It may also decrease performance in certain cases. This setting allows the consumer of the
         /// library to test which use cases is best for their specific scenario.
         /// </summary>
-        public bool UseMerge { get; set; }
+        public bool UseMerge { get; set; } = true;
     }
 }

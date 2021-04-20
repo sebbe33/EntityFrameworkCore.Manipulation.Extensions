@@ -7,5 +7,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
         SqlServerRegularTableTypes,
         SqlServerMemoryOptimizedTableTypes,
         SqlServerOutputInto,
+        SqlServerMergeSync,
+        SqlServerSimpleStatementsSync
     }
 }

@@ -13,8 +13,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
     internal static class SqlCommandBuilderExtensions
     {
-        
-
         public static StringBuilder AppendColumnNames(
             this StringBuilder stringBuilder,
             IReadOnlyCollection<IProperty> properties,
@@ -117,7 +115,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             string userDefinedTableTypeName,
             IProperty[] properties,
             IEnumerable<TEntity> entities,
-            IList<object> parameters)
+            IList<object> parameters,
+            bool includeActionColumn = false)
         {
             var dataTable = new DataTable();
 
@@ -134,6 +133,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 }
 
                 dataTable.Columns.Add(property.GetColumnName(), columnType);
+            }
+
+            if (includeActionColumn)
+            {
+                // Add the action column, which is part of every TVP type
+                dataTable.Columns.Add(DatabaseFacadeExtensions.TempOutputTableActionColumn, typeof(string));
             }
 
             // Add the entities as rows
@@ -168,7 +173,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             this StringBuilder stringBuilder,
             IReadOnlyCollection<IProperty> properties,
             bool outputIntoTempTable,
-            bool includeAction = false)
+            bool includeAction = false,
+            string identifierPrefix = "deleted")
         {
             stringBuilder.Append("OUTPUT ");
 
@@ -177,7 +183,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 stringBuilder.Append("$action AS ").Append(DatabaseFacadeExtensions.TempOutputTableActionColumn).Append(", ");
             }
 
-            stringBuilder.AppendColumnNames(properties, false, identifierPrefix: "deleted");
+            stringBuilder.AppendColumnNames(properties, false, identifierPrefix);
 
             if (outputIntoTempTable)
             {
