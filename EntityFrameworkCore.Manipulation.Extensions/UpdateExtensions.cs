@@ -1,24 +1,19 @@
 namespace EntityFrameworkCore.Manipulation.Extensions
 {
-    using EntityFrameworkCore.Manipulation.Extensions.Configuration;
-    using EntityFrameworkCore.Manipulation.Extensions.Configuration.Internal;
-    using EntityFrameworkCore.Manipulation.Extensions.Internal;
-    using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
-    using Microsoft.EntityFrameworkCore;
-    using Microsoft.EntityFrameworkCore.Metadata;
     using System;
     using System.Collections.Generic;
     using System.Data.SqlClient;
-    using System.Dynamic;
     using System.Linq;
     using System.Linq.Expressions;
-    using System.Reflection;
-    using System.Runtime.CompilerServices;
-    using System.Security.Cryptography;
     using System.Text;
     using System.Text.RegularExpressions;
     using System.Threading;
     using System.Threading.Tasks;
+    using EntityFrameworkCore.Manipulation.Extensions.Configuration;
+    using EntityFrameworkCore.Manipulation.Extensions.Configuration.Internal;
+    using EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions;
+    using Microsoft.EntityFrameworkCore;
+    using Microsoft.EntityFrameworkCore.Metadata;
 
     public class UpdateEntry<TEntity>
         where TEntity : class
@@ -132,15 +127,16 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             else
             {
                 bool outputInto = configuration.SqlServerConfiguration.EntityTypesWithTriggers.Contains(entityType.ClrType.Name);
-                if (outputInto)
-                {
-                    stringBuilder.AppendOutputTempTableDeclaration(insertedProperties: properties, deletedProperties: null);
-                }
 
                 string userDefinedTableTypeName = null;
-                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
+                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source) || outputInto)
                 {
                     userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
+                }
+
+                if (outputInto)
+                {
+                    stringBuilder.AppendOutputDeclaration(userDefinedTableTypeName);
                 }
 
                 string incomingInlineTableCommand = userDefinedTableTypeName != null ?
@@ -163,15 +159,16 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 string inlineTableAlias = joinAliasRegex.Match(fromJoinCommand).Value.Trim();
 
                 stringBuilder
+                    .AppendLine("SET NOCOUNT ON;")
                     .Append("UPDATE ").Append(tableName).AppendLine(" SET")
                         .AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}={inlineTableAlias}.{property.Name}"))).AppendLine()
-                    .AppendOutputClauseLine(insertedProperties: properties, deletedProperties: null, outputInto)
+                    .AppendOutputClauseLine(properties, outputInto, identifierPrefix: "inserted")
                     .Append(fromJoinCommand)
                     .AppendLine(";");
 
                 if (outputInto)
                 {
-                    stringBuilder.AppendOutputSelect(insertedProperties: properties, deletedProperties: null).AppendLine(";");
+                    stringBuilder.AppendOutputSelect(properties).AppendLine(";");
                 }
             }
 

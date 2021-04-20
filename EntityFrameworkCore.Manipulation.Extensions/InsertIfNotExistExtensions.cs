@@ -71,23 +71,27 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             else
             {
                 bool outputInto = configuration.SqlServerConfiguration.EntityTypesWithTriggers.Contains(entityType.ClrType.Name);
-                if (outputInto)
-                {
-                    stringBuilder.AppendOutputTempTableDeclaration(insertedProperties: properties, deletedProperties: null);
-                }
 
                 string userDefinedTableTypeName = null;
-                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities))
+                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities) || outputInto)
                 {
                     userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
                 }
 
-                stringBuilder.AppendLine("INSERT INTO ").Append(tableName).AppendColumnNames(properties, wrapInParanthesis: true)
-                             .AppendOutputClauseLine(insertedProperties: properties, deletedProperties: null, outputInto);
+                if (outputInto)
+                {
+                    stringBuilder.AppendOutputDeclaration(userDefinedTableTypeName);
+                }
+
+                stringBuilder
+                    .AppendLine("SET NOCOUNT ON;")
+                    .AppendLine("INSERT INTO ").Append(tableName).AppendColumnNames(properties, wrapInParanthesis: true)
+                    .AppendOutputClauseLine(properties, outputInto, identifierPrefix: "inserted");
 
                 if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities))
                 {
-                    stringBuilder.Append("SELECT * FROM ")
+                    stringBuilder.Append("SELECT ").AppendColumnNames(properties, wrapInParanthesis: false)
+                        .Append(" FROM ")
                         .AppendTableValuedParameter(userDefinedTableTypeName, properties, entities, parameters)
                         .AppendLine(" AS source");
                 }
@@ -105,7 +109,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
                 if (outputInto)
                 {
-                    stringBuilder.AppendOutputSelect(insertedProperties: properties, deletedProperties: null).AppendLine(";");
+                    stringBuilder.AppendOutputSelect(properties).AppendLine(";");
                 }
             }
 

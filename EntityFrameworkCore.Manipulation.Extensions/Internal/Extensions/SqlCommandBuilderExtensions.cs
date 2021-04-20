@@ -13,8 +13,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
     internal static class SqlCommandBuilderExtensions
     {
-        private const string TempOutputTableActionColumn = "__Action";
-
         public static StringBuilder AppendColumnNames(
             this StringBuilder stringBuilder,
             IReadOnlyCollection<IProperty> properties,
@@ -111,7 +109,14 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             string userDefinedTableTypeName,
             IProperty[] properties,
             IEnumerable<TEntity> entities,
-            IList<object> parameters)
+            IList<object> parameters) => stringBuilder.Append(CreateTableValuedParameter(userDefinedTableTypeName, properties, entities, parameters));
+
+        public static string CreateTableValuedParameter<TEntity>(
+            string userDefinedTableTypeName,
+            IProperty[] properties,
+            IEnumerable<TEntity> entities,
+            IList<object> parameters,
+            bool includeActionColumn = false)
         {
             var dataTable = new DataTable();
 
@@ -128,6 +133,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 }
 
                 dataTable.Columns.Add(property.GetColumnName(), columnType);
+            }
+
+            if (includeActionColumn)
+            {
+                // Add the action column, which is part of every TVP type
+                dataTable.Columns.Add(DatabaseFacadeExtensions.TempOutputTableActionColumn, typeof(string));
             }
 
             // Add the entities as rows
@@ -152,90 +163,27 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             };
             parameters.Add(parameter);
 
-            return stringBuilder.Append(parameter.ParameterName);
+            return parameter.ParameterName;
         }
 
-        public static StringBuilder AppendOutputTempTableDeclaration(
-            this StringBuilder stringBuilder,
-            IReadOnlyCollection<IProperty> insertedProperties,
-            IReadOnlyCollection<IProperty> deletedProperties,
-            bool includeAction = false)
-        {
-            // Create the temp table definition based on the included properties
-            stringBuilder.Append("DECLARE @tempOutput TABLE(");
-
-            // If we track both inserted and deleted, we have to use an aliaser to prefix the columns with i_ and d_ respectively to be able to tell the inserted/deleted appart.
-            bool shouldUseAliaser = insertedProperties?.Count > 0 && deletedProperties?.Count > 0;
-
-            if (includeAction) // action is used for MERGE
-            {
-                stringBuilder.Append(TempOutputTableActionColumn).Append(" char(6), ");
-            }
-
-            if (insertedProperties?.Count > 0)
-            {
-                foreach (IProperty property in insertedProperties)
-                {
-                    stringBuilder.Append(shouldUseAliaser ? OutputInsertedAliaser(property.GetColumnName()) : property.GetColumnName()).Append(' ').Append(property.GetColumnType()).Append(',');
-                }
-            }
-
-            if (deletedProperties?.Count > 0)
-            {
-                foreach (IProperty property in deletedProperties)
-                {
-                    stringBuilder.Append(shouldUseAliaser ? OutputDeletedAliaser(property.GetColumnName()) : property.GetColumnName()).Append(' ').Append(property.GetColumnType()).Append(',');
-                }
-            }
-
-            stringBuilder.Length--; // remove the last ","
-
-            return stringBuilder.AppendLine(");");
-        }
+        public static StringBuilder AppendOutputDeclaration(this StringBuilder stringBuilder, string userDefinedTableTypeName) =>
+            stringBuilder.Append("DECLARE @tempOutput ").Append(userDefinedTableTypeName).AppendLine(";");
 
         public static StringBuilder AppendOutputClauseLine(
             this StringBuilder stringBuilder,
-            IReadOnlyCollection<IProperty> insertedProperties,
-            IReadOnlyCollection<IProperty> deletedProperties,
+            IReadOnlyCollection<IProperty> properties,
             bool outputIntoTempTable,
-            bool includeAction = false)
+            bool includeAction = false,
+            string identifierPrefix = "deleted")
         {
-            bool shouldUseAliaser = insertedProperties?.Count > 0 && deletedProperties?.Count > 0;
             stringBuilder.Append("OUTPUT ");
 
             if (includeAction)
             {
-                stringBuilder.Append("$action AS ").Append(TempOutputTableActionColumn).Append(", ");
+                stringBuilder.Append("$action AS ").Append(DatabaseFacadeExtensions.TempOutputTableActionColumn).Append(", ");
             }
 
-            // include the inserted.* columns to be outputed
-            if (insertedProperties?.Count > 0)
-            {
-                Func<string, string> insertedAliaser = null;
-                if (shouldUseAliaser)
-                {
-                    insertedAliaser = OutputInsertedAliaser;
-                }
-
-                stringBuilder.AppendColumnNames(insertedProperties, false, identifierPrefix: "inserted", aliaser: insertedAliaser);
-
-                if (deletedProperties?.Count > 0)
-                {
-                    stringBuilder.Append(", ");
-                }
-            }
-
-            // include the deleted.* columns to be outputed
-            if (deletedProperties?.Count > 0)
-            {
-                Func<string, string> deletedAliaser = null;
-                if (shouldUseAliaser)
-                {
-                    deletedAliaser = OutputDeletedAliaser;
-                }
-
-                stringBuilder.AppendColumnNames(deletedProperties, false, identifierPrefix: "deleted", aliaser: deletedAliaser);
-            }
+            stringBuilder.AppendColumnNames(properties, false, identifierPrefix);
 
             if (outputIntoTempTable)
             {
@@ -246,41 +194,18 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
         }
 
         public static StringBuilder AppendOutputSelect(this StringBuilder stringBuilder,
-            IReadOnlyCollection<IProperty> insertedProperties,
-            IReadOnlyCollection<IProperty> deletedProperties,
+            IReadOnlyCollection<IProperty> properties,
             bool includeAction = false)
         {
-            bool shouldUseAliaser = insertedProperties?.Count > 0 && deletedProperties?.Count > 0;
             stringBuilder.Append("SELECT ");
 
             if (includeAction)
             {
-                stringBuilder.Append(TempOutputTableActionColumn).Append(", ");
+                stringBuilder.Append(DatabaseFacadeExtensions.TempOutputTableActionColumn).Append(", ");
             }
 
-            if (insertedProperties?.Count > 0)
-            {
-                foreach (IProperty property in insertedProperties)
-                {
-                    stringBuilder.Append(shouldUseAliaser ? OutputInsertedAliaser(property.GetColumnName()) : property.GetColumnName()).Append(',');
-                }
-            }
-
-            if (deletedProperties?.Count > 0)
-            {
-                foreach (IProperty property in deletedProperties)
-                {
-                    stringBuilder.Append(shouldUseAliaser ? OutputDeletedAliaser(property.GetColumnName()) : property.GetColumnName()).Append(',');
-                }
-            }
-
-            stringBuilder.Length--; // remove the last ","
-
-            return stringBuilder.Append(" FROM @tempOutput ");
+            return stringBuilder.AppendColumnNames(properties, wrapInParanthesis: false)
+                .Append(" FROM @tempOutput ");
         }
-
-        private static string OutputInsertedAliaser(string columnName) => $"i_{columnName}";
-
-        private static string OutputDeletedAliaser(string columnName) => $"d_{columnName}";
     }
 }

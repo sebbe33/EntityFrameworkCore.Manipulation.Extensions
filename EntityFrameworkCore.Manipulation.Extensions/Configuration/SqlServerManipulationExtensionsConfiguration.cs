@@ -3,7 +3,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Configuration
     using System;
     using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations;
-    using System.Globalization;
 
     /// <summary>
     /// Configuration for the EntityFrameworkCore.Manipulation.Extensions library.
@@ -71,5 +70,13 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Configuration
         /// <returns><c>true</c> if there was already an interceptor registered for <typeparamref name="TEntity"/>, <c>false</c> otherwise.</returns>
         public bool AddTableValuedParameterInterceptor<TEntity>(ITableValuedParameterInterceptor interceptor) =>
             this.TvpInterceptors.TryAdd(typeof(TEntity), interceptor ?? throw new ArgumentNullException(nameof(interceptor)));
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to utilize SQL Server's MERGE statement for upserts and syncs, or whether to
+        /// used individual INSERT, UPDATE, and DELETE statements. The merge statement may increase performance for upserts and syncs,
+        /// especially in regards to IO. It may also decrease performance in certain cases. This setting allows the consumer of the
+        /// library to test which use cases is best for their specific scenario.
+        /// </summary>
+        public bool UseMerge { get; set; } = true;
     }
 }

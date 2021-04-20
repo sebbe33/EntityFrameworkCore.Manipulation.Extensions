@@ -88,6 +88,14 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
                 context.ManipulationExtensionsConfiguration.SqlServerConfiguration.EntityTypesWithTriggers.Add(nameof(TestEntity));
                 context.ManipulationExtensionsConfiguration.SqlServerConfiguration.EntityTypesWithTriggers.Add(nameof(TestEntityCompositeKey));
             }
+            else if (testConfiguration == TestConfiguration.SqlServerMergeSync)
+            {
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseMerge = true;
+            }
+            else if (testConfiguration == TestConfiguration.SqlServerSimpleStatementsSync)
+            {
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseMerge = false;
+            }
 
             return context;
         }
