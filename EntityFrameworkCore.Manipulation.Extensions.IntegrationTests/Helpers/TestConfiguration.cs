@@ -5,7 +5,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
     {
         Default,
         SqlServerRegularTableTypes,
+        SqlServerRegularTableTypesWithClusteredIndex,
+        SqlServerRegularTableTypesWithNonclusteredIndex,
         SqlServerMemoryOptimizedTableTypes,
+        SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex,
         SqlServerOutputInto,
         SqlServerMergeSync,
         SqlServerSimpleStatementsSync

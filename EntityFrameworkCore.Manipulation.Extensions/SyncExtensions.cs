@@ -284,9 +284,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions
         {
             ManipulationExtensionsConfiguration configuration = dbContext.GetConfiguration();
 
-            if (configuration.SqlServerConfiguration.UseMerge)
+            if (configuration.SqlServerConfiguration.ShouldUseMerge<TEntity>())
             {
-                bool outputInto = configuration.SqlServerConfiguration.EntityTypesWithTriggers.Contains(entityType.ClrType.Name);
+                bool outputInto = configuration.SqlServerConfiguration.DoesEntityHaveTriggers<TEntity>();
                 string userDefinedTableTypeName = null;
                 if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
                 {
