@@ -1,5 +1,6 @@
 namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 {
+    using EntityFrameworkCore.Manipulation.Extensions.Configuration;
     using Microsoft.Data.Sqlite;
     using Microsoft.EntityFrameworkCore;
     using System;
@@ -76,17 +77,35 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
             if (testConfiguration == TestConfiguration.SqlServerRegularTableTypes)
             {
                 context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseMemoryOptimizedTableTypes = false;
-                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseTableValuedParametersParameterCountTreshold = 0;
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.DetaultUseTableValuedParametersParameterCountTreshold = 0;
+            }
+            else if (testConfiguration == TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)
+            {
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.DetaultUseTableValuedParametersParameterCountTreshold = 0;
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.AddEntityConifugration<TestEntity>(new EntityConifugration { UseMemoryOptimizedTableTypes = false, TableTypeIndex = SqlServerTableTypeIndex.ClusteredIndex });
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.AddEntityConifugration<TestEntityCompositeKey>(new EntityConifugration { UseMemoryOptimizedTableTypes = false, TableTypeIndex = SqlServerTableTypeIndex.ClusteredIndex });
+            }
+            else if (testConfiguration == TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)
+            {
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.DetaultUseTableValuedParametersParameterCountTreshold = 0;
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.AddEntityConifugration<TestEntity>(new EntityConifugration { UseMemoryOptimizedTableTypes = false, TableTypeIndex = SqlServerTableTypeIndex.NonClusteredIndex });
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.AddEntityConifugration<TestEntityCompositeKey>(new EntityConifugration { UseMemoryOptimizedTableTypes = false, TableTypeIndex = SqlServerTableTypeIndex.NonClusteredIndex });
             }
             else if (testConfiguration == TestConfiguration.SqlServerMemoryOptimizedTableTypes)
             {
                 context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseMemoryOptimizedTableTypes = true;
-                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseTableValuedParametersParameterCountTreshold = 0;
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.DetaultUseTableValuedParametersParameterCountTreshold = 0;
+            }
+            else if (testConfiguration == TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)
+            {
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.DetaultUseTableValuedParametersParameterCountTreshold = 0;
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.AddEntityConifugration<TestEntity>(new EntityConifugration { UseMemoryOptimizedTableTypes = true, TableTypeIndex = SqlServerTableTypeIndex.NonClusteredIndex });
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.AddEntityConifugration<TestEntityCompositeKey>(new EntityConifugration { UseMemoryOptimizedTableTypes = true, TableTypeIndex = SqlServerTableTypeIndex.NonClusteredIndex });
             }
             else if (testConfiguration == TestConfiguration.SqlServerOutputInto)
             {
-                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.EntityTypesWithTriggers.Add(nameof(TestEntity));
-                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.EntityTypesWithTriggers.Add(nameof(TestEntityCompositeKey));
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.AddEntityConifugration<TestEntity>(new EntityConifugration { HasTrigger = true });
+                context.ManipulationExtensionsConfiguration.SqlServerConfiguration.AddEntityConifugration<TestEntityCompositeKey>(new EntityConifugration { HasTrigger = true });
             }
             else if (testConfiguration == TestConfiguration.SqlServerMergeSync)
             {

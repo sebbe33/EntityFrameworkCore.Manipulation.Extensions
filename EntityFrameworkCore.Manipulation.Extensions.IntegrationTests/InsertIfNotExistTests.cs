@@ -18,7 +18,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task InsertIfNotExistAsync_ShouldNotInsertEntities_WhenNoEntitiesGiven(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
@@ -39,7 +42,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task InsertIfNotExistAsync_ShouldInsertAndReturnAllEntitiest_WhenThereAreNoExistingEntities(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
@@ -67,7 +73,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task InsertIfNotExistAsync_ShouldInsertAndReturnEntitiesWhichNotExist_WhenThereAreExistingEntities(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {

@@ -1,6 +1,7 @@
 namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 {
     using EntityFrameworkCore.Manipulation.Extensions.Configuration;
+    using EntityFrameworkCore.Manipulation.Extensions.Configuration.Internal;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore.Diagnostics;
     using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -18,7 +19,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
     {
         internal const string TempOutputTableActionColumn = "__Action";
 
-        private const string TableTypeGeneratorVersion = "2"; // This should be rev'd when the creation code for table types has changed
+        private const string TableTypeGeneratorVersion = "3"; // This should be rev'd when the creation code for table types has changed
 
         private static readonly ConcurrentDictionary<(string DatabaseName, string EntityTableName, string Configuration), string> UserDefinedTableTypeCache
             = new ConcurrentDictionary<(string, string, string), string>();
@@ -53,11 +54,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             var stringBuilder = new StringBuilder();
             string entityTableName = entityType.GetTableName();
 
-            int hashBucketCount = 0;
-            if (configuration.UseMemoryOptimizedTableTypes && configuration.HashIndexBucketCountsByEntityType?.TryGetValue(entityType.ClrType.Name, out hashBucketCount) != true)
-            {
-                hashBucketCount = configuration.DefaultHashIndexBucketCount;
-            }
+            int hashBucketCount = configuration.GetHashIndexBucketCount(entityType.ClrType);
+            bool shouldUseMemoryOptimizedTableTypes = configuration.ShouldUseMemoryOptimizedTableTypes(entityType.ClrType);
+            SqlServerTableTypeIndex indexType = configuration.GetTableTypeIndex(entityType.ClrType);
 
             var connectionInfo = new SqlConnectionStringBuilder(databaseFacade.GetDbConnection().ConnectionString
                 ?? throw new InvalidOperationException("No connection string was specified for the connection to the database."));
@@ -65,7 +64,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 
             // The cache configuration is a per-entity entry that defines the configuration that was used to set up the table type.
             // The configuration may change durning run-time, and as such we must account for that a table type may not be available when it changes. 
-            string cacheConfiguration = $"{configuration.UseMemoryOptimizedTableTypes}-{hashBucketCount}-{includeActionColumn}";
+            string cacheConfiguration = $"{shouldUseMemoryOptimizedTableTypes}-{hashBucketCount}-{includeActionColumn}-{indexType}";
 
             // Check if the type, with current configuration, has already been successfully created in the current database. If so, we don't need to generate the command to create the type.
             if (UserDefinedTableTypeCache.TryGetValue((fullyQualifiedDatabaseName, entityTableName, cacheConfiguration), out string userDefinedTableTypeName))
@@ -73,10 +72,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 return userDefinedTableTypeName;
             }
 
-            if (!configuration.TvpInterceptors.TryGetValue(entityType.ClrType, out ITableValuedParameterInterceptor interceptor))
-            {
-                interceptor = DefaultTableValuedParameterInterceptor.Instance;
-            }
+            ITableValuedParameterInterceptor interceptor = configuration.GetTvpInterceptor(entityType.ClrType);
 
             // If the type hasn't been created (at least not by the running instance), then we send an idempotent command to create it.
             var schemaBuilder = new StringBuilder();
@@ -101,11 +97,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             string schema = schemaBuilder.ToString();
             string schemaHash = schema.GetDeterministicStringHash();
 
-            userDefinedTableTypeName = $"{entityTableName}_v{TableTypeGeneratorVersion}{(includeActionColumn ? "a" : string.Empty)}_{schemaHash}";
-
-            string typeIdClause = $"TYPE_ID('{userDefinedTableTypeName}')";
-
-            bool shouldUseMemoryOptimizedTableTypes = configuration.UseMemoryOptimizedTableTypes;
 
             if (shouldUseMemoryOptimizedTableTypes)
             {
@@ -119,35 +110,62 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
                 }
             }
 
+            IKey primaryKey = entityType.FindPrimaryKey();
+            string typeIdClause = null;
+
             if (shouldUseMemoryOptimizedTableTypes)
             {
-                // The result of the pre-check came back positive. Proceed with the creation of the memory-optimized type.
-                IKey primaryKey = entityType.FindPrimaryKey();
-
-                if (primaryKey == null)
+                // Non-clustered and hash index are the only indices available for memory optimized tables
+                if (indexType != SqlServerTableTypeIndex.NonClusteredIndex)
                 {
-                    throw new InvalidOperationException("Cannot create a memory-optimized table type for an entity without a primary key");
+                    indexType = SqlServerTableTypeIndex.HashIndex;
                 }
 
-                // Override the table name + Type ID to be a memory type
-                userDefinedTableTypeName = $"{entityTableName}_v{TableTypeGeneratorVersion}m{(includeActionColumn ? "a" : string.Empty)}_{schemaHash}";
-                typeIdClause = $"TYPE_ID('{userDefinedTableTypeName}')";
+                // The result of the pre-check came back positive. Proceed with the creation of the memory-optimized type.
+                (userDefinedTableTypeName, typeIdClause) = GetTableTypeInfo(entityTableName, indexType, includeActionColumn, isMemoryOptimized: true, schemaHash);
 
                 stringBuilder
                     .Append("IF ").Append(typeIdClause).AppendLine(" IS NULL")
                         .Append("CREATE TYPE ").Append(userDefinedTableTypeName).AppendLine(" AS TABLE")
                         .AppendLine("(")
-                            .Append(schema).AppendLine(",")
-                            .Append("INDEX IX_").Append(userDefinedTableTypeName).Append(" HASH ").AppendColumnNames(primaryKey.Properties, true).AppendLine()
-                            .Append("WITH (BUCKET_COUNT = ").Append(hashBucketCount).AppendLine(")")
-                        .AppendLine(") WITH (MEMORY_OPTIMIZED = ON)");
+                            .Append(schema).AppendLine(",");
+
+                if (indexType == SqlServerTableTypeIndex.NonClusteredIndex)
+                {
+                    stringBuilder.Append("PRIMARY KEY NONCLUSTERED ").AppendColumnNames(primaryKey.Properties, true).AppendLine();
+                }
+                else
+                {
+                    stringBuilder.Append("PRIMARY KEY NONCLUSTERED HASH ").AppendColumnNames(primaryKey.Properties, true).AppendLine()
+                                .Append("WITH (BUCKET_COUNT = ").Append(hashBucketCount).AppendLine(")");
+                }
+
+                stringBuilder.AppendLine(") WITH (MEMORY_OPTIMIZED = ON)");
             }
             else
             {
+                // Hash index is not available for regular table types
+                if (indexType == SqlServerTableTypeIndex.HashIndex || indexType == SqlServerTableTypeIndex.Default)
+                {
+                    indexType = SqlServerTableTypeIndex.NoIndex;
+                }
+
+                (userDefinedTableTypeName, typeIdClause) = GetTableTypeInfo(entityTableName, indexType, includeActionColumn, isMemoryOptimized: false, schemaHash);
+
                 stringBuilder
                     .Append("IF ").Append(typeIdClause).AppendLine(" IS NULL")
                         .Append("CREATE TYPE ").Append(userDefinedTableTypeName).AppendLine(" AS TABLE")
-                        .Append("( ").Append(schema).AppendLine(" )");
+                        .Append("( ")
+                            .Append(schema);
+
+                if (indexType == SqlServerTableTypeIndex.NonClusteredIndex || indexType == SqlServerTableTypeIndex.ClusteredIndex)
+                {
+                    stringBuilder.Append(", PRIMARY KEY ")
+                        .Append(indexType == SqlServerTableTypeIndex.NonClusteredIndex ? "NONCLUSTERED" : "CLUSTERED")
+                        .AppendColumnNames(primaryKey.Properties, true).AppendLine();
+                }
+
+                stringBuilder.AppendLine(" )");
             }
 
             try
@@ -186,6 +204,13 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
             // Cache that the type now exists
             UserDefinedTableTypeCache.TryAdd((fullyQualifiedDatabaseName, entityTableName, cacheConfiguration), userDefinedTableTypeName);
             return userDefinedTableTypeName;
+        }
+
+        private static (string userDefinedTableTypeName, string typeIdClause) GetTableTypeInfo(string entityTableName, SqlServerTableTypeIndex indexType, bool includeActionColumn, bool isMemoryOptimized, string schemaHash)
+        {
+            string userDefinedTableTypeName = $"{entityTableName}_v{TableTypeGeneratorVersion}{(isMemoryOptimized ? "m" : string.Empty)}{(includeActionColumn ? "a" : string.Empty)}_{indexType:D}_{schemaHash}";
+
+            return (userDefinedTableTypeName, $"TYPE_ID('{userDefinedTableTypeName}')");
         }
     }
 }

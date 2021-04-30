@@ -70,7 +70,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             }
             else
             {
-                bool outputInto = configuration.SqlServerConfiguration.EntityTypesWithTriggers.Contains(entityType.ClrType.Name);
+                bool outputInto = configuration.SqlServerConfiguration.DoesEntityHaveTriggers<TEntity>();
 
                 string userDefinedTableTypeName = null;
                 if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, entities) || outputInto)

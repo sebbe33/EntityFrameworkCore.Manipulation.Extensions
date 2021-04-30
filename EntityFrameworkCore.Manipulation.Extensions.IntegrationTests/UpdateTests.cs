@@ -16,7 +16,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoEntitiesInDbNorInput(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
@@ -34,7 +37,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoEntitiesInInput(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
@@ -58,7 +64,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoMatchingEntitiesBasedOnKey(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
@@ -87,7 +96,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnEmptyCollection_WhenThereAreNoMatchingEntitiesBasedOnCondition(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
@@ -117,7 +129,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnUpdatedCollection_WhenAllEntitiesAreMatchingWithoutCondition(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
@@ -145,7 +160,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnAffectedUpdatedCollection_WhenASubsetOfEntitiesAreMatchingWithoutCondition(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
@@ -175,7 +193,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnAffectedUpdatedCollection_WhenASubsetOfEntitiesAreMatchingWithCondition(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
@@ -208,7 +229,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnCollectionWithOnlyIncludedPropertiesUpdated_WhenEntitiesMatchAndIncludedPropertyExpresionsArePassed(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
@@ -278,11 +302,13 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
             // We're only using Table Valued Parameters in SqlServer
             using TestDbContext context = await ContextFactory.GetDbContextAsync(DbProvider.SqlServer, seedData: existingEntities);
 
-            // Make sure we're using TVP
-            context.ManipulationExtensionsConfiguration.SqlServerConfiguration.UseTableValuedParametersParameterCountTreshold = 0;
-
-            // Add the test interceptor
-            context.ManipulationExtensionsConfiguration.SqlServerConfiguration.AddTableValuedParameterInterceptor<TestInterceptorEntity>(new TestTableValuedParameterInterceptor());
+            // Make sure we're using TVP and add the test interceptor
+            context.ManipulationExtensionsConfiguration.SqlServerConfiguration.AddEntityConifugration<TestInterceptorEntity>(
+                new Configuration.EntityConifugration
+                {
+                    UseTableValuedParametersParameterCountTreshold = 0,
+                    TableValuedParameterInterceptor = new TestTableValuedParameterInterceptor(),
+                });
 
             // Include bool values - they are the only items expected to be updated based on the mocked data.
             InclusionBuilder<TestInterceptorEntity> inclusionBuilder = new InclusionBuilder<TestInterceptorEntity>().Include(x => x.BoolTestValue);
@@ -316,7 +342,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.Sqlite)]
         [DataRow(DbProvider.SqlServer)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
         public async Task UpdateAsync_ShouldReturnCollectionWithOnlyNonExcludedPropertiesUpdated_WhenEntitiesMatchAndIncludedPropertyNamesArePassed(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
