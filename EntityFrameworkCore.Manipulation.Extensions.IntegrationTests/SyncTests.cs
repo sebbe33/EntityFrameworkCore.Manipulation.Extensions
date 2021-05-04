@@ -24,6 +24,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncAsync_ShouldInsertAndReturnEntities_WhenNoEntitiesExist(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: null, testConfiguration: testConfiguration); // Note: no seed data => no entities exist
@@ -54,6 +56,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncAsync_ShouldInsertAndReturnEntities_WhenNoMatchingEntitiesExistInTarget(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -92,6 +96,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncAsync_ShouldUpdateAndReturnEntities_WhenTargetIsEntireTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -128,6 +134,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncAsync_ShouldUpdateAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -166,6 +174,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         [Ignore("Need to fix this case")]
         public async Task SyncAsync_ShouldDeleteAndReturnEntireSource_WhenSourceIsEmpty(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
@@ -196,6 +206,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncAsync_ShouldDeleteAndUpdateAndReturnEntities_WhenTargetIsEntireTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -230,6 +242,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncAsync_ShouldDeleteAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -266,6 +280,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -301,6 +317,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -338,6 +356,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncAsync_ShouldInsertAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -375,6 +395,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncAsync_ShouldInsertAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -414,6 +436,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncAsync_ShouldInsertAndUpdateAndDeleteAndReturnMatchingTargetEntities_WhenTargetIsEntireTablee(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -453,6 +477,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncAsync_ShouldInsertAndUpdateAndDeleteAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -494,6 +520,55 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
+        public async Task SyncAsync_ShouldInsertAndUpdateAndDeleteAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTableDeterminedByResolver(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
+        {
+            TestEntityCompositeKey[] existingEntities = new[]
+            {
+                new TestEntityCompositeKey { IdPartA = "MATCH 1", IdPartB = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
+                new TestEntityCompositeKey { IdPartA = "MATCH 1", IdPartB = "Should Be Updated", IntTestValue = 222, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 5641324 },
+                new TestEntityCompositeKey { IdPartA = "ExcludedEntity", IdPartB = "E1", IntTestValue = 165, BoolTestValue = true, DateTimeTestValue = new DateTime(998416312), LongTestValue = 135431 },
+                new TestEntityCompositeKey { IdPartA = "ExcludedEntity", IdPartB = "E2", IntTestValue = 98116, BoolTestValue = false, DateTimeTestValue = new DateTime(896513433), LongTestValue = -4564 },
+                new TestEntityCompositeKey { IdPartA = "MATCH 2", IdPartB = "TO BE DELETED", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
+                new TestEntityCompositeKey { IdPartA = "MATCH 2", IdPartB = "Should Be Updated", IntTestValue = 333, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 1354126 },
+            };
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities, testConfiguration: testConfiguration);
+
+            TestEntityCompositeKey[] expectedEntitiesInTargetAfterSync = new[]
+            {
+                new TestEntityCompositeKey { IdPartA = "TO BE INSERTED", IdPartB = "1", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
+                new TestEntityCompositeKey { IdPartA = "TO BE INSERTED", IdPartB = "2", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354 },
+                new TestEntityCompositeKey { IdPartA = "MATCH 1", IdPartB = "Should Be Updated", IntTestValue = 9932165, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 5641324 },
+                new TestEntityCompositeKey { IdPartA = "MATCH 2", IdPartB = "Should Be Updated", IntTestValue = 985613, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 5641324 },
+            };
+
+            // Invoke the method and check that the result is the expected entities
+            ISyncResult<TestEntityCompositeKey> result = await context.SyncAsync(
+                targetResolver: x => x.target.Where(targetEntry => x.source.Any(sourceEntry => targetEntry.IdPartA == sourceEntry.IdPartA)),
+                expectedEntitiesInTargetAfterSync);
+
+            result.DeletedEntities.Should().BeEquivalentTo(existingEntities.Where(e => e.IdPartB == "TO BE DELETED"));
+            result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Where(e => e.IdPartA == "TO BE INSERTED"));
+            result.UpdatedEntities.Should().BeEquivalentTo(new[] { (existingEntities[1], expectedEntitiesInTargetAfterSync[2]), (existingEntities[5], expectedEntitiesInTargetAfterSync[3]) });
+
+            // Then check that the the changes were synced to the db
+            context.TestEntitiesWithCompositeKey.ToList().Should().BeEquivalentTo(
+                existingEntities.Where(e => e.IdPartA == "ExcludedEntity") // Existing excluded entities (excluded by the target resolver)
+                .Concat(expectedEntitiesInTargetAfterSync)); // + synced entries
+        }
+
+        [DataTestMethod]
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncWithoutUpdateAsync_ShouldInsertAndReturnEntities_WhenNoEntitiesExist(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: null, testConfiguration: testConfiguration); // Note: no seed data => no entities exist
@@ -523,6 +598,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncWithoutUpdateAsync_ShouldInsertAndReturnEntities_WhenNoMatchingEntitiesExistInTarget(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -559,6 +636,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncWithoutUpdateAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             // Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
@@ -600,6 +679,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task SyncWithoutUpdateAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             // Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
@@ -643,6 +724,54 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
+        public async Task SyncWithoutUpdateAsync_ShouldDeleteAndInsertAndReturnMatchingTargetEntities_WhenTargetIsSubsetOfTableDeterminedByResolver(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
+        {
+            // Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
+            TestEntityCompositeKey[] existingEntities = new[]
+            {
+                new TestEntityCompositeKey { IdPartA = "MATCH 1", IdPartB = "TO BE DELETED", IntTestValue = 111, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 65465132165 },
+                new TestEntityCompositeKey { IdPartA = "MATCH 1", IdPartB = "Should Be Ignored", IntTestValue = 222, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 5641324 },
+                new TestEntityCompositeKey { IdPartA = "ExcludedEntity", IdPartB = "E1", IntTestValue = 165, BoolTestValue = true, DateTimeTestValue = new DateTime(998416312), LongTestValue = 135431 },
+                new TestEntityCompositeKey { IdPartA = "MATCH 2", IdPartB = "TO BE DELETED", IntTestValue = 444, BoolTestValue = false, DateTimeTestValue = new DateTime(55644547416541), LongTestValue = 89413543521 },
+                new TestEntityCompositeKey { IdPartA = "MATCH 2", IdPartB = "Should Be Ignored", IntTestValue = 333, BoolTestValue = true, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 1354126 },
+            };
+            using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, existingEntities, testConfiguration: testConfiguration);
+
+            TestEntityCompositeKey[] expectedEntitiesInTargetAfterSync = new[]
+            {
+                new TestEntityCompositeKey { IdPartA = "TO BE INSERTED", IdPartB = "1", IntTestValue = 84106, BoolTestValue = true, DateTimeTestValue = new DateTime(846213546), LongTestValue = 32425123 },
+                new TestEntityCompositeKey { IdPartA = "TO BE INSERTED", IdPartB = "2", IntTestValue = 87132, BoolTestValue = false, DateTimeTestValue = new DateTime(81846213546), LongTestValue = 87421354 },
+                new TestEntityCompositeKey { IdPartA = "MATCH 1", IdPartB = "Should Be Ignored", IntTestValue = 9932165, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 5641324 },
+                new TestEntityCompositeKey { IdPartA = "MATCH 2", IdPartB = "Should Be Ignored", IntTestValue = 985613, BoolTestValue = false, DateTimeTestValue = DateTime.UtcNow, LongTestValue = 5641324 },
+            };
+
+            // Invoke the method and check that the result is the expected entities
+            ISyncWithoutUpdateResult<TestEntityCompositeKey> result = await context.SyncWithoutUpdateAsync(
+                targetResolver: x => x.target.Where(targetEntry => x.source.Any(sourceEntry => targetEntry.IdPartA == sourceEntry.IdPartA)),
+                expectedEntitiesInTargetAfterSync);
+
+            result.DeletedEntities.Should().BeEquivalentTo(existingEntities.Where(e => e.IdPartB == "TO BE DELETED"));
+            result.InsertedEntities.Should().BeEquivalentTo(expectedEntitiesInTargetAfterSync.Where(e => e.IdPartA == "TO BE INSERTED"));
+
+            // Then check that the the changes were synced to the db
+            context.TestEntitiesWithCompositeKey.ToList().Should().BeEquivalentTo(
+                existingEntities.Where(e => e.IdPartB == "Should Be Ignored" || e.IdPartA == "ExcludedEntity") // Existing matched entities (ignored) + excluded entities (excluded by the target resolver)
+                .Concat(expectedEntitiesInTargetAfterSync.Where(e => e.IdPartA.StartsWith("TO BE INSERTED", StringComparison.Ordinal)))); // new entries
+        }
+
+        [DataTestMethod]
+        [DataRow(DbProvider.Sqlite)]
+        [DataRow(DbProvider.SqlServer)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMemoryOptimizedTableTypesWithNonclusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypes)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task UpsertAsync_ShouldInsertAndReturnEntities_WhenNoEntitiesExist(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             using TestDbContext context = await ContextFactory.GetDbContextAsync(provider, seedData: null, testConfiguration: testConfiguration); // Note: no seed data => no entities exist
@@ -672,6 +801,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task UpsertAsync_ShouldInsertAndReturnEntities_WhenNoMatchingEntitiesExistInTarget(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -707,6 +838,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task UpsertAsync_ShouldUpdateAndReturnEntities_WhenAllEntitiesMatchInTarget(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             TestEntity[] existingEntities = new[]
@@ -746,6 +879,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task UpsertAsync_ShouldInsertAndUpdateAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             // Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
@@ -787,6 +922,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task UpsertAsync_ShouldInsertAndUpdateIncludedPropertiesAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             // Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact
@@ -852,6 +989,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithClusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerRegularTableTypesWithNonclusteredIndex)]
         [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerOutputInto)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerSimpleStatementsSync)]
+        [DataRow(DbProvider.SqlServer, TestConfiguration.SqlServerMergeSync)]
         public async Task UpsertAsync_ShouldInsertAndUpdateNonExcludedPropertiesAndReturnMatchingTargetEntities_WhenTargetIsEntireTable(DbProvider provider, TestConfiguration testConfiguration = TestConfiguration.Default)
         {
             // Note: SyncWithoutUpdate ignores matched items, i.e. it doesn't update them. As such, we expected them to stay intact

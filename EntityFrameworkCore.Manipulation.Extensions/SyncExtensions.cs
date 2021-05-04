@@ -18,11 +18,36 @@ namespace EntityFrameworkCore.Manipulation.Extensions
     /// </summary>
     public static class SyncExtensions
     {
+        /// <summary>
+        /// Syncs the <paramref name="source"/> entities into the <paramref name="target"/> queryable. This entails:
+        /// 1. Inserting any entities which exist in source, but not in target, into target
+        /// 2. Updating the properties of any entities which exist in both source and target to the values found in source
+        /// 3. Deleting any entities in target which do not exist in source.
+        ///
+        /// This operation performs a full sync (also known as MERGE), and is to be used in scenarios where a target should replicate
+        /// the source. For situations that do not require deletion, use
+        /// <see cref="UpsertAsync{TEntity}(DbContext, IReadOnlyCollection{TEntity}, IClusivityBuilder{TEntity}, IClusivityBuilder{TEntity}, CancellationToken)"/>
+        /// and for scenarios which do not require updates, use <see cref="SyncWithoutUpdateAsync{TEntity}(DbContext, IQueryable{TEntity}, IReadOnlyCollection{TEntity}, IClusivityBuilder{TEntity}, CancellationToken)"/>.
+        /// </summary>
+        /// <remarks>
+        /// The <paramref name="target"/> should be selected with care as any entities not matched in <paramref name="source"/> will be deleted from the target.
+        /// If you're only interesting in syncing a subset, make sure to filter/scope down the <paramref name="target"/> to meet your needs before passing it in.
+        /// If you want to sync an entire table, simply pass the <see cref="DbSet{TEntity}"/> for your entity type, but note that this will delete any entities not found in source.
+        /// </remarks>
+        /// <typeparam name="TEntity">The entity type.</typeparam>
+        /// <param name="dbContext">EF Db Context</param>
+        /// <param name="target">The target to be synced to. Specify a queryable based on the <see cref="DbSet{TEntity}"/> of your entity type. Specify with care.</param>
+        /// <param name="source">The collection of entities to sync from.</param>
+        /// <param name="insertClusivityBuilder">The clusivity builder for entities which will be inserted.</param>
+        /// <param name="updateClusivityBuilder">The clusivity builder for entities which will be updated. You may use this to only update a subset of properties.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The result of the sync, containing which entities were inserted, updated, and deleted.</returns>
         public static async Task<ISyncResult<TEntity>> SyncAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> target, IReadOnlyCollection<TEntity> source, IClusivityBuilder<TEntity> insertClusivityBuilder = null, IClusivityBuilder<TEntity> updateClusivityBuilder = null, CancellationToken cancellationToken = default)
             where TEntity : class, new()
             => await SyncInternalAsync(
                 dbContext ?? throw new ArgumentNullException(nameof(dbContext)),
                 target ?? throw new ArgumentNullException(nameof(target)),
+                targetResolver: null,
                 source ?? throw new ArgumentNullException(nameof(source)),
                 ignoreUpdates: false, // this is a full sync
                 ignoreDeletions: false,
@@ -30,11 +55,78 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 updateClusivityBuilder,
                 cancellationToken);
 
+        /// <summary>
+        /// Syncs the <paramref name="source"/> entities into the a target. This entails:
+        /// 1. Inserting any entities which exist in source, but not in target, into target
+        /// 2. Updating the properties of any entities which exist in both source and target to the values found in source
+        /// 3. Deleting any entities in target which do not exist in source.
+        ///
+        /// The target is the queryable returned by the <paramref name="targetResolver"/>. You may use the source queryable, passed into the resolver,
+        /// to specify the target queryable to return.
+        ///
+        /// This operation performs a full sync (also known as MERGE), and is to be used in scenarios where a target should replicate
+        /// the source. For situations that do not require deletion, use
+        /// <see cref="UpsertAsync{TEntity}(DbContext, IReadOnlyCollection{TEntity}, IClusivityBuilder{TEntity}, IClusivityBuilder{TEntity}, CancellationToken)"/>
+        /// and for scenarios which do not require updates, use <see cref="SyncWithoutUpdateAsync{TEntity}(DbContext, Func{(IQueryable{TEntity} source, IQueryable{TEntity} target), IQueryable{TEntity}}, IReadOnlyCollection{TEntity}, IClusivityBuilder{TEntity}, CancellationToken)"/>.
+        /// </summary>
+        /// <remarks>
+        /// The <paramref name="targetResolver"/> should be specified with care as any entities not matched in <paramref name="source"/> will be deleted from the target.
+        /// If you're only interesting in syncing a subset, make sure to filter/scope down the tarfet to meet your needs before passing it in.
+        /// If you want to sync an entire table, simply pass the <see cref="DbSet{TEntity}"/> for your entity type, but note that this will delete any entities not found in source.
+        /// </remarks>
+        /// <typeparam name="TEntity">The entity type.</typeparam>
+        /// <param name="dbContext">EF Db Context</param>
+        /// <param name="targetResolver">
+        /// The resolver for the target. The <see cref="IQueryable{T}"/> returned by the resolver is used as the target. You may base the target on the
+        /// target passed as input, and the source passed as input (e.g. by joining).
+        /// </param>
+        /// <param name="source">The collection of entities to sync from.</param>
+        /// <param name="insertClusivityBuilder">The clusivity builder for entities which will be inserted.</param>
+        /// <param name="updateClusivityBuilder">The clusivity builder for entities which will be updated. You may use this to only update a subset of properties.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The result of the sync, containing which entities were inserted, updated, and deleted.</returns>
+        public static async Task<ISyncResult<TEntity>> SyncAsync<TEntity>(
+            this DbContext dbContext,
+            Func<(IQueryable<TEntity> source, IQueryable<TEntity> target), IQueryable<TEntity>> targetResolver,
+            IReadOnlyCollection<TEntity> source,
+            IClusivityBuilder<TEntity> insertClusivityBuilder = null,
+            IClusivityBuilder<TEntity> updateClusivityBuilder = null,
+            CancellationToken cancellationToken = default)
+            where TEntity : class, new()
+            => await SyncInternalAsync(
+                dbContext ?? throw new ArgumentNullException(nameof(dbContext)),
+                target: null,
+                targetResolver ?? throw new ArgumentNullException(nameof(targetResolver)),
+                source ?? throw new ArgumentNullException(nameof(source)),
+                ignoreUpdates: false, // this is a full sync
+                ignoreDeletions: false,
+                insertClusivityBuilder,
+                updateClusivityBuilder,
+                cancellationToken);
+
+        /// <summary>
+        /// Syncs the <paramref name="source"/> entities into the <paramref name="target"/> queryable, without updating matched entities. This entails:
+        /// 1. Inserting any entities which exist in source, but not in target, into target
+        /// 2. Deleting any entities in target which do not exist in source.
+        /// </summary>
+        /// <remarks>
+        /// The <paramref name="target"/> should be selected with care as any entities not matched in <paramref name="source"/> will be deleted from the target.
+        /// If you're only interesting in syncing a subset, make sure to filter/scope down the <paramref name="target"/> to meet your needs before passing it in.
+        /// If you want to sync an entire table, simply pass the <see cref="DbSet{TEntity}"/> for your entity type, but note that this will delete any entities not found in source.
+        /// </remarks>
+        /// <typeparam name="TEntity">The entity type.</typeparam>
+        /// <param name="dbContext">EF Db Context</param>
+        /// <param name="target">The target to be synced to. Specify a queryable based on the <see cref="DbSet{TEntity}"/> of your entity type. Specify with care.</param>
+        /// <param name="source">The collection of entities to sync from.</param>
+        /// <param name="insertClusivityBuilder">The clusivity builder for entities which will be inserted.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The result of the sync, containing which entities were inserted and deleted.</returns>
         public static async Task<ISyncWithoutUpdateResult<TEntity>> SyncWithoutUpdateAsync<TEntity>(this DbContext dbContext, IQueryable<TEntity> target, IReadOnlyCollection<TEntity> source, IClusivityBuilder<TEntity> insertClusivityBuilder = null, CancellationToken cancellationToken = default)
             where TEntity : class, new()
             => await SyncInternalAsync(
                 dbContext ?? throw new ArgumentNullException(nameof(dbContext)),
                 target ?? throw new ArgumentNullException(nameof(target)),
+                targetResolver: null,
                 source ?? throw new ArgumentNullException(nameof(source)),
                 ignoreUpdates: true, // this is a sync without updates
                 ignoreDeletions: false,
@@ -42,11 +134,65 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 null,
                 cancellationToken);
 
+        /// <summary>
+        /// Syncs the <paramref name="source"/> entities into a target, without updating matched entities. This entails:
+        /// 1. Inserting any entities which exist in source, but not in target, into target
+        /// 2. Deleting any entities in target which do not exist in source.
+        ///
+        /// The target is the queryable returned by the <paramref name="targetResolver"/>. You may use the source queryable, passed into the resolver,
+        /// to specify the target queryable to return.
+        /// </summary>
+        /// <remarks>
+        /// The <paramref name="targetResolver"/> should be specified with care as any entities not matched in <paramref name="source"/> will be deleted from the target.
+        /// If you're only interesting in syncing a subset, make sure to filter/scope down the tarfet to meet your needs before passing it in.
+        /// If you want to sync an entire table, simply pass the <see cref="DbSet{TEntity}"/> for your entity type, but note that this will delete any entities not found in source.
+        /// </remarks>
+        /// <typeparam name="TEntity">The entity type.</typeparam>
+        /// <param name="dbContext">EF Db Context</param>
+        /// <param name="targetResolver">
+        /// The resolver for the target. The <see cref="IQueryable{T}"/> returned by the resolver is used as the target. You may base the target on the
+        /// target passed as input, and the source passed as input (e.g. by joining).
+        /// </param>
+        /// <param name="source">The collection of entities to sync from.</param>
+        /// <param name="insertClusivityBuilder">The clusivity builder for entities which will be inserted.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The result of the sync, containing which entities were inserted and deleted.</returns>
+        public static async Task<ISyncWithoutUpdateResult<TEntity>> SyncWithoutUpdateAsync<TEntity>(
+            this DbContext dbContext,
+            Func<(IQueryable<TEntity> source, IQueryable<TEntity> target), IQueryable<TEntity>> targetResolver,
+            IReadOnlyCollection<TEntity> source,
+            IClusivityBuilder<TEntity> insertClusivityBuilder = null,
+            CancellationToken cancellationToken = default)
+            where TEntity : class, new()
+            => await SyncInternalAsync(
+                dbContext ?? throw new ArgumentNullException(nameof(dbContext)),
+                target: null,
+                targetResolver ?? throw new ArgumentNullException(nameof(targetResolver)),
+                source ?? throw new ArgumentNullException(nameof(source)),
+                ignoreUpdates: true, // this is a sync without updates
+                ignoreDeletions: false,
+                insertClusivityBuilder,
+                null,
+                cancellationToken);
+
+        /// <summary>
+        /// Upserts the <paramref name="source"/> into the <typeparamref name="TEntity"/>'s <see cref="DbSet{TEntity}"/>. This entails:
+        /// 1. Inserting any entities which exist in source, but does not exist in the database.
+        /// 2. Updating the properties of any entities which exist in both source and the database to the values found in source
+        /// </summary>
+        /// <typeparam name="TEntity">The entity type.</typeparam>
+        /// <param name="dbContext">EF Db Context</param>
+        /// <param name="source">The collection of entities to upsert from.</param>
+        /// <param name="insertClusivityBuilder">The clusivity builder for entities which will be inserted.</param>
+        /// <param name="updateClusivityBuilder">The clusivity builder for entities which will be updated. You may use this to only update a subset of properties.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The result of the upsert, containing which entities were inserted and updated.</returns>
         public static async Task<IUpsertResult<TEntity>> UpsertAsync<TEntity>(this DbContext dbContext, IReadOnlyCollection<TEntity> source, IClusivityBuilder<TEntity> insertClusivityBuilder = null, IClusivityBuilder<TEntity> updateClusivityBuilder = null, CancellationToken cancellationToken = default)
             where TEntity : class, new()
             => await SyncInternalAsync(
                 dbContext ?? throw new ArgumentNullException(nameof(dbContext)),
-                dbContext.Set<TEntity>(),
+                target: dbContext.Set<TEntity>(),
+                targetResolver: null,
                 source ?? throw new ArgumentNullException(nameof(source)),
                 ignoreUpdates: false,
                 ignoreDeletions: true, // this is a sync for upserts
@@ -57,6 +203,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
         private static async Task<SyncResult<TEntity>> SyncInternalAsync<TEntity>(
             this DbContext dbContext,
             IQueryable<TEntity> target,
+            Func<(IQueryable<TEntity> source, IQueryable<TEntity> target), IQueryable<TEntity>> targetResolver,
             IReadOnlyCollection<TEntity> source,
             bool ignoreUpdates,
             bool ignoreDeletions,
@@ -76,16 +223,16 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             IProperty[] propertiesToUpdate = updateClusivityBuilder == null ? nonPrimaryKeyProperties : updateClusivityBuilder.Build(nonPrimaryKeyProperties);
             IProperty[] propertiesToInsert = insertClusivityBuilder == null ? properties : primaryKey.Properties.Concat(insertClusivityBuilder.Build(nonPrimaryKeyProperties)).ToArray();
 
-            (string targetCommand, IReadOnlyCollection<System.Data.SqlClient.SqlParameter> targetCommandParameters) = target.ToSqlCommand();
-
             var parameters = new List<object>(source.Count * properties.Length);
-            parameters.AddRange(targetCommandParameters);
 
             bool isSqlite = dbContext.Database.IsSqlite();
             if (isSqlite)
             {
                 stringBuilder.AddSqliteSyncCommand(
+                    dbContext: dbContext,
                     entityType: entityType,
+                    target: target,
+                    targetResolver: targetResolver,
                     source: source,
                     ignoreUpdates: ignoreUpdates,
                     ignoreDeletions: ignoreDeletions,
@@ -94,14 +241,15 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                     properties: properties,
                     propertiesToUpdate: propertiesToUpdate,
                     propertiesToInsert: propertiesToInsert,
-                    parameters: parameters,
-                    targetCommand: targetCommand);
+                    parameters: parameters);
             }
             else
             {
                 await stringBuilder.AddSqlServerSyncCommand(
                     dbContext: dbContext,
                     entityType: entityType,
+                    target: target,
+                    targetResolver: targetResolver,
                     source: source,
                     ignoreUpdates: ignoreUpdates,
                     ignoreDeletions: ignoreDeletions,
@@ -111,7 +259,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                     propertiesToUpdate: propertiesToUpdate,
                     propertiesToInsert: propertiesToInsert,
                     parameters: parameters,
-                    targetCommand: targetCommand,
                     cancellationToken);
             }
 
@@ -186,7 +333,10 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
         private static void AddSqliteSyncCommand<TEntity>(
             this StringBuilder stringBuilder,
+            DbContext dbContext,
             IEntityType entityType,
+            IQueryable<TEntity> target,
+            Func<(IQueryable<TEntity> source, IQueryable<TEntity> target), IQueryable<TEntity>> targetResolver,
             IReadOnlyCollection<TEntity> source,
             bool ignoreUpdates,
             bool ignoreDeletions,
@@ -195,10 +345,27 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             IProperty[] nonPrimaryKeyProperties,
             IProperty[] propertiesToUpdate,
             IProperty[] propertiesToInsert,
-            List<object> parameters,
-            string targetCommand)
+            List<object> parameters)
             where TEntity : class, new()
         {
+            string targetCommand = null;
+            IReadOnlyCollection<System.Data.SqlClient.SqlParameter> targetCommandParameters;
+
+            // If we got a resolver, we'll have to resolve the target.
+            if (targetResolver != null)
+            {
+                IQueryable<TEntity> sourceAsQueryable = dbContext.Set<TEntity>().FromSqlRaw("SELECT * FROM source");
+
+                target = targetResolver((sourceAsQueryable, dbContext.Set<TEntity>()));
+                (targetCommand, targetCommandParameters) = target.ToSqlCommand(filterCollapsedP0Param: true);
+            }
+            else
+            {
+                (targetCommand, targetCommandParameters) = target.ToSqlCommand();
+            }
+
+            parameters.AddRange(targetCommandParameters);
+
             string tableName = entityType.GetTableName();
             string SourceAliaser(string columnName) => $"source_{columnName}";
             string TargetAliaser(string columnName) => $"target_{columnName}";
@@ -212,12 +379,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                          .AppendLine("target AS ( ")
                             .Append(targetCommand)
                             .AppendLine(") ")
-                         .Append("SELECT (CASE WHEN (")
-                            .AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"target.{property.Name} IS NULL")))
+                         .AppendLine("SELECT (CASE WHEN (")
+                            .AppendJoin(" OR ", primaryKey.Properties.Select(property => FormattableString.Invariant($"target.{property.Name} IS NULL")))
                             .Append(") THEN 'INSERT' ELSE 'UPDATE' END) AS _$action, ")
                             .AppendColumnNames(properties, false, "source", SourceAliaser).Append(", ")
                             .AppendColumnNames(properties, false, "target", TargetAliaser)
-                            .Append("FROM source LEFT OUTER JOIN target ON ").AppendJoinCondition(primaryKey);
+                            .AppendLine("FROM source LEFT OUTER JOIN target ON ").AppendJoinCondition(primaryKey);
 
             // We ignore updates by not taking any matches in target (leaving us with only inserts, but crutially the target.* columns)
             if (ignoreUpdates)
@@ -234,7 +401,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                         .AppendColumnNames(properties, false, "source", SourceAliaser).Append(", ")
                         .AppendColumnNames(properties, false, "target", TargetAliaser)
                         .Append("FROM target LEFT OUTER JOIN source ON ").AppendJoinCondition(primaryKey)
-                        .Append("WHERE ").AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"source.{property.Name} IS NULL"))).AppendLine(";")
+                        .Append("WHERE ").AppendJoin(" OR ", primaryKey.Properties.Select(property => FormattableString.Invariant($"source.{property.Name} IS NULL"))).AppendLine(";")
                     .Append("DELETE FROM ").Append(tableName).Append(" WHERE EXISTS (SELECT 1 FROM EntityFrameworkManipulationSync WHERE _$action='DELETE' AND ")
                         .AppendJoin(" AND ", primaryKey.Properties.Select(property => FormattableString.Invariant($"{property.Name}={TargetAliaser(property.Name)}"))).AppendLine(");");
             }
@@ -269,6 +436,8 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             this StringBuilder stringBuilder,
             DbContext dbContext,
             IEntityType entityType,
+            IQueryable<TEntity> target,
+            Func<(IQueryable<TEntity> source, IQueryable<TEntity> target), IQueryable<TEntity>> targetResolver,
             IReadOnlyCollection<TEntity> source,
             bool ignoreUpdates,
             bool ignoreDeletions,
@@ -278,24 +447,52 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             IProperty[] propertiesToUpdate,
             IProperty[] propertiesToInsert,
             List<object> parameters,
-            string targetCommand,
             CancellationToken cancellationToken)
             where TEntity : class, new()
         {
             ManipulationExtensionsConfiguration configuration = dbContext.GetConfiguration();
 
+            string userDefinedTableTypeName = null;
+            string tableValuedParameter = null;
+
+            // There are three cases where we use a TVP as source:
+            // 1. when we exceed the param thresholds set in configuration
+            // 2. when we have a target resolver, and
+            // 3. when we do a simple-statement sync (i.e. not using MERGE)
+            if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source)
+                || targetResolver != null
+                || !configuration.SqlServerConfiguration.ShouldUseMerge<TEntity>())
+            {
+                userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
+                tableValuedParameter = SqlCommandBuilderExtensions.CreateTableValuedParameter(userDefinedTableTypeName, properties, source, parameters);
+            }
+
+            string targetCommand = null;
+            IReadOnlyCollection<System.Data.SqlClient.SqlParameter> targetCommandParameters;
+
+            // If we got a resolver, we'll have to resolve the target.
+            if (targetResolver != null)
+            {
+                IQueryable<TEntity> sourceAsQueryable = dbContext.Set<TEntity>().FromSqlRaw(new StringBuilder().Append("SELECT * FROM ").Append(tableValuedParameter).ToString());
+
+                target = targetResolver((sourceAsQueryable, dbContext.Set<TEntity>()));
+                (targetCommand, targetCommandParameters) = target.ToSqlCommand(filterCollapsedP0Param: true);
+            }
+            else
+            {
+                (targetCommand, targetCommandParameters) = target.ToSqlCommand();
+            }
+
+            parameters.AddRange(targetCommandParameters);
+
             if (configuration.SqlServerConfiguration.ShouldUseMerge<TEntity>())
             {
                 bool outputInto = configuration.SqlServerConfiguration.DoesEntityHaveTriggers<TEntity>();
-                string userDefinedTableTypeName = null;
-                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
-                {
-                    userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
-                }
 
                 string outputType = null;
                 if (outputInto)
                 {
+                    // The output type is the same as userDefinedTableTypeName, but with an aditional field for Action
                     outputType = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken, includeActionColumn: true);
                     stringBuilder.AppendOutputDeclaration(outputType);
                 }
@@ -306,9 +503,9 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                     .AppendLine("MERGE INTO TargetData AS target ")
                     .Append("USING ");
 
-                if (configuration.SqlServerConfiguration.ShouldUseTableValuedParameters(properties, source))
+                if (tableValuedParameter != null)
                 {
-                    stringBuilder.AppendTableValuedParameter(userDefinedTableTypeName, properties, source, parameters);
+                    stringBuilder.Append(tableValuedParameter);
                 }
                 else
                 {
@@ -343,10 +540,6 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             }
             else
             {
-                string userDefinedTableTypeName = null;
-                userDefinedTableTypeName = await dbContext.Database.CreateUserDefinedTableTypeIfNotExistsAsync(entityType, configuration.SqlServerConfiguration, cancellationToken);
-                string tvpParameter = SqlCommandBuilderExtensions.CreateTableValuedParameter(userDefinedTableTypeName, properties, source, parameters);
-
                 string tableName = entityType.GetSchemaQualifiedTableName();
                 stringBuilder
                     .AppendLine("SET NOCOUNT ON;")
@@ -362,7 +555,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                             .Append(targetCommand).AppendLine(")")
                         .AppendLine("DELETE FROM target")
                         .Append("OUTPUT ").AppendColumnNames(properties, wrapInParanthesis: false, "deleted").Append(" INTO ").AppendLine("@DeleteResult")
-                        .Append("WHERE NOT EXISTS (SELECT 1 FROM ").Append(tvpParameter).Append(" source WHERE ").AppendJoinCondition(primaryKey).AppendLine(");");
+                        .Append("WHERE NOT EXISTS (SELECT 1 FROM ").Append(tableValuedParameter).Append(" source WHERE ").AppendJoinCondition(primaryKey).AppendLine(");");
                 }
 
                 // UPDATE
@@ -373,7 +566,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                         .Append("UPDATE ").Append(tableName).AppendLine(" SET")
                             .AppendJoin(",", propertiesToUpdate.Select(property => FormattableString.Invariant($"{property.Name}=source.{property.Name}"))).AppendLine()
                         .Append("OUTPUT ").AppendColumnNames(properties, wrapInParanthesis: false, "deleted").Append(" INTO ").AppendLine("@UpdateResult")
-                        .Append("FROM ").Append(tableName).Append(" AS target INNER JOIN ").Append(tvpParameter).Append(" source ON ").AppendJoinCondition(primaryKey).AppendLine(";");
+                        .Append("FROM ").Append(tableName).Append(" AS target INNER JOIN ").Append(tableValuedParameter).Append(" source ON ").AppendJoinCondition(primaryKey).AppendLine(";");
                 }
 
                 // INSERT if not exists in taget table
@@ -382,7 +575,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                     .Append("INSERT INTO ").Append(tableName).AppendColumnNames(propertiesToInsert, wrapInParanthesis: true).AppendLine()
                     .Append("OUTPUT ").AppendColumnNames(properties, wrapInParanthesis: false, "inserted").Append(" INTO ").AppendLine("@InsertResult")
                     .Append("SELECT ").AppendJoin(",", propertiesToInsert.Select(m => m.GetColumnName())).AppendLine()
-                    .Append("FROM ").Append(tvpParameter).AppendLine(" source")
+                    .Append("FROM ").Append(tableValuedParameter).AppendLine(" source")
                     .Append("WHERE NOT EXISTS (SELECT 1 FROM ")
                         .Append(tableToCheckForExistence).Append(" target WHERE ")
                         .AppendJoinCondition(primaryKey).AppendLine(");");
