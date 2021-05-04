@@ -22,12 +22,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions
         /// Syncs the <paramref name="source"/> entities into the <paramref name="target"/> queryable. This entails:
         /// 1. Inserting any entities which exist in source, but not in target, into target
         /// 2. Updating the properties of any entities which exist in both source and target to the values found in source
-        /// 3. Deleting any entities in target which do not exist in targets.
+        /// 3. Deleting any entities in target which do not exist in source.
         ///
         /// This operation performs a full sync (also known as MERGE), and is to be used in scenarios where a target should replicate
         /// the source. For situations that do not require deletion, use
         /// <see cref="UpsertAsync{TEntity}(DbContext, IReadOnlyCollection{TEntity}, IClusivityBuilder{TEntity}, IClusivityBuilder{TEntity}, CancellationToken)"/>
-        /// and for scenarios which do not require updates, use <see cref="SyncAsync{TEntity}(DbContext, IQueryable{TEntity}, IReadOnlyCollection{TEntity}, IClusivityBuilder{TEntity}, IClusivityBuilder{TEntity}, CancellationToken)"/>.
+        /// and for scenarios which do not require updates, use <see cref="SyncWithoutUpdateAsync{TEntity}(DbContext, IQueryable{TEntity}, IReadOnlyCollection{TEntity}, IClusivityBuilder{TEntity}, CancellationToken)"/>.
         /// </summary>
         /// <remarks>
         /// The <paramref name="target"/> should be selected with care as any entities not matched in <paramref name="source"/> will be deleted from the target.
@@ -59,7 +59,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
         /// Syncs the <paramref name="source"/> entities into the a target. This entails:
         /// 1. Inserting any entities which exist in source, but not in target, into target
         /// 2. Updating the properties of any entities which exist in both source and target to the values found in source
-        /// 3. Deleting any entities in target which do not exist in targets.
+        /// 3. Deleting any entities in target which do not exist in source.
         ///
         /// The target is the queryable returned by the <paramref name="targetResolver"/>. You may use the source queryable, passed into the resolver,
         /// to specify the target queryable to return.
@@ -67,7 +67,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
         /// This operation performs a full sync (also known as MERGE), and is to be used in scenarios where a target should replicate
         /// the source. For situations that do not require deletion, use
         /// <see cref="UpsertAsync{TEntity}(DbContext, IReadOnlyCollection{TEntity}, IClusivityBuilder{TEntity}, IClusivityBuilder{TEntity}, CancellationToken)"/>
-        /// and for scenarios which do not require updates, use <see cref="SyncAsync{TEntity}(DbContext, IQueryable{TEntity}, IReadOnlyCollection{TEntity}, IClusivityBuilder{TEntity}, IClusivityBuilder{TEntity}, CancellationToken)"/>.
+        /// and for scenarios which do not require updates, use <see cref="SyncWithoutUpdateAsync{TEntity}(DbContext, Func{(IQueryable{TEntity} source, IQueryable{TEntity} target), IQueryable{TEntity}}, IReadOnlyCollection{TEntity}, IClusivityBuilder{TEntity}, CancellationToken)"/>.
         /// </summary>
         /// <remarks>
         /// The <paramref name="targetResolver"/> should be specified with care as any entities not matched in <paramref name="source"/> will be deleted from the target.
@@ -107,7 +107,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
         /// <summary>
         /// Syncs the <paramref name="source"/> entities into the <paramref name="target"/> queryable, without updating matched entities. This entails:
         /// 1. Inserting any entities which exist in source, but not in target, into target
-        /// 2. Deleting any entities in target which do not exist in targets.
+        /// 2. Deleting any entities in target which do not exist in source.
         /// </summary>
         /// <remarks>
         /// The <paramref name="target"/> should be selected with care as any entities not matched in <paramref name="source"/> will be deleted from the target.
@@ -137,7 +137,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
         /// <summary>
         /// Syncs the <paramref name="source"/> entities into a target, without updating matched entities. This entails:
         /// 1. Inserting any entities which exist in source, but not in target, into target
-        /// 2. Deleting any entities in target which do not exist in targets.
+        /// 2. Deleting any entities in target which do not exist in source.
         ///
         /// The target is the queryable returned by the <paramref name="targetResolver"/>. You may use the source queryable, passed into the resolver,
         /// to specify the target queryable to return.
