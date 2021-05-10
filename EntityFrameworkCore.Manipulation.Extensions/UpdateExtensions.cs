@@ -101,7 +101,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             {
                 string incomingInlineTableCommand = new StringBuilder().AppendSelectFromInlineTable(properties, source, parameters, "x", sqliteSyntax: true).ToString();
                 IQueryable<TEntity> incoming = CreateIncomingQueryable(dbContext, incomingInlineTableCommand, condition, parameters);
-                (string sourceCommand, IReadOnlyCollection<SqlParameter> sourceCommandParameters) = incoming.ToSqlCommand(filterCollapsedP0Param: true);
+                (string sourceCommand, IReadOnlyCollection<SqlParameter> sourceCommandParameters) = incoming.ToSqlCommand(filterCompositeRelationParameter: true);
                 parameters.AddRange(sourceCommandParameters);
 
                 const string TempDeleteTableName = "EntityFrameworkManipulationUpdate";
@@ -146,7 +146,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 
                 IQueryable<TEntity> incoming = CreateIncomingQueryable(dbContext, incomingInlineTableCommand, condition, parameters);
 
-                (string sourceCommand, IReadOnlyCollection<SqlParameter> sourceCommandParameters) = incoming.ToSqlCommand(filterCollapsedP0Param: true);
+                (string sourceCommand, IReadOnlyCollection<SqlParameter> sourceCommandParameters) = incoming.ToSqlCommand(filterCompositeRelationParameter: true);
                 parameters.AddRange(sourceCommandParameters);
 
                 // Here's where we have to cheat a bit to get an efficient query. If we were to place the sourceCommand in a CTE,

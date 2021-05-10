@@ -357,7 +357,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 IQueryable<TEntity> sourceAsQueryable = dbContext.Set<TEntity>().FromSqlRaw("SELECT * FROM source");
 
                 target = targetResolver((sourceAsQueryable, dbContext.Set<TEntity>()));
-                (targetCommand, targetCommandParameters) = target.ToSqlCommand(filterCollapsedP0Param: true);
+                (targetCommand, targetCommandParameters) = target.ToSqlCommand(filterCompositeRelationParameter: true);
             }
             else
             {
@@ -476,7 +476,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
                 IQueryable<TEntity> sourceAsQueryable = dbContext.Set<TEntity>().FromSqlRaw(new StringBuilder().Append("SELECT * FROM ").Append(tableValuedParameter).ToString());
 
                 target = targetResolver((sourceAsQueryable, dbContext.Set<TEntity>()));
-                (targetCommand, targetCommandParameters) = target.ToSqlCommand(filterCollapsedP0Param: true);
+                (targetCommand, targetCommandParameters) = target.ToSqlCommand(filterCompositeRelationParameter: true);
             }
             else
             {
