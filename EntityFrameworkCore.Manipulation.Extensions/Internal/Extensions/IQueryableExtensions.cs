@@ -1,9 +1,10 @@
-﻿namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
+namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
 {
     using Microsoft.EntityFrameworkCore.Query;
     using Microsoft.EntityFrameworkCore.Query.Internal;
     using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
     using Microsoft.EntityFrameworkCore.Storage;
+    using Microsoft.EntityFrameworkCore.Storage.Internal;
     using System;
     using System.Collections;
     using System.Collections.Generic;
@@ -14,7 +15,7 @@
 
     internal static class IQueryableExtensions
     {
-        public static (string CommantText, IReadOnlyCollection<SqlParameter> Parameters) ToSqlCommand<TEntity>(this IQueryable<TEntity> query, bool filterCollapsedP0Param = false)
+        public static (string CommantText, IReadOnlyCollection<SqlParameter> Parameters) ToSqlCommand<TEntity>(this IQueryable<TEntity> query, bool filterCompositeRelationParameter = false)
             where TEntity : class
         {
             IEnumerator<TEntity> enumerator = query.Provider.Execute<IEnumerable<TEntity>>(query.Expression).GetEnumerator();
@@ -41,7 +42,7 @@
             }
 
             SqlParameter[] sqlParams = command.Parameters
-                .Where(param => !filterCollapsedP0Param || param.InvariantName == "@__p_0")
+                .Where(param => !filterCompositeRelationParameter || !(param is CompositeRelationalParameter))
                 .Select(param => new SqlParameter($"@{param.InvariantName}", parameterValues[param.InvariantName]))
                 .ToArray();
 
