@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
     using Microsoft.EntityFrameworkCore;
     using System;
     using System.Collections.Generic;
-    using System.Data.SqlClient;
+    using Microsoft.Data.SqlClient;
     using System.Threading.Tasks;
 
     public enum DbProvider
@@ -41,6 +41,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
                 {
                     DataSource = string.IsNullOrWhiteSpace(sqlServer) ? @"localhost\SQLEXPRESS" : sqlServer,
                     InitialCatalog = string.IsNullOrWhiteSpace(sqldb) ? @"entityframeworkcore-manipulation-extensions-integration-testing" : sqldb,
+                    TrustServerCertificate = true,
                 };
 
                 if (string.IsNullOrWhiteSpace(sqlUser) || string.IsNullOrWhiteSpace(sqlUser))
