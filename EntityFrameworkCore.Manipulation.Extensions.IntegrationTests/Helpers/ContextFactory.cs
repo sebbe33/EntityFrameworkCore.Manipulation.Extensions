@@ -41,15 +41,16 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
                 {
                     DataSource = string.IsNullOrWhiteSpace(sqlServer) ? @"localhost\SQLEXPRESS" : sqlServer,
                     InitialCatalog = string.IsNullOrWhiteSpace(sqldb) ? @"entityframeworkcore-manipulation-extensions-integration-testing" : sqldb,
-                    TrustServerCertificate = true,
                 };
 
                 if (string.IsNullOrWhiteSpace(sqlUser) || string.IsNullOrWhiteSpace(sqlUser))
                 {
+                    Console.WriteLine("Using integrated security.");
                     connectionStringBuilder.IntegratedSecurity = true;
                 }
                 else
                 {
+                    Console.WriteLine("Using credentials.");
                     connectionStringBuilder.UserID = sqlUser;
                     connectionStringBuilder.Password = sqlPassword;
                 }
