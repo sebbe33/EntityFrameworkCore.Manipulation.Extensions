@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Data;
-    using Microsoft.Data.SqlClient;
+    using System.Data.SqlClient;
     using System.Data.SqlTypes;
     using System.Linq;
     using System.Text;

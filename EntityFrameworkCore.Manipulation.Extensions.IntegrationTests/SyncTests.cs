@@ -8,7 +8,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.UnitTests
     using Microsoft.VisualStudio.TestTools.UnitTesting;
     using System;
     using System.Collections.Generic;
-    using Microsoft.Data.SqlClient;
+    using System.Data.SqlClient;
     using System.Linq;
     using System.Threading.Tasks;
 

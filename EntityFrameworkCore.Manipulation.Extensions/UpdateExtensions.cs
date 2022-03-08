@@ -2,7 +2,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
 {
     using System;
     using System.Collections.Generic;
-    using Microsoft.Data.SqlClient;
+    using System.Data.SqlClient;
     using System.Linq;
     using System.Linq.Expressions;
     using System.Text;

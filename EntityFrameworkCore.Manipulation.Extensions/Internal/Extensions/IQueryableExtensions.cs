@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.Internal.Extensions
     using System.Collections;
     using System.Collections.Generic;
     using System.Collections.ObjectModel;
-    using Microsoft.Data.SqlClient;
+    using System.Data.SqlClient;
     using System.Linq;
     using System.Reflection;
 
