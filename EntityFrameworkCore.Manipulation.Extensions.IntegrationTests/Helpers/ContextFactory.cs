@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
     using Microsoft.EntityFrameworkCore;
     using System;
     using System.Collections.Generic;
-    using System.Data.SqlClient;
+    using Microsoft.Data.SqlClient;
     using System.Threading.Tasks;
 
     public enum DbProvider
@@ -45,10 +45,12 @@ namespace EntityFrameworkCore.Manipulation.Extensions.IntegrationTests.Helpers
 
                 if (string.IsNullOrWhiteSpace(sqlUser) || string.IsNullOrWhiteSpace(sqlUser))
                 {
+                    Console.WriteLine("Using integrated security.");
                     connectionStringBuilder.IntegratedSecurity = true;
                 }
                 else
                 {
+                    Console.WriteLine("Using credentials.");
                     connectionStringBuilder.UserID = sqlUser;
                     connectionStringBuilder.Password = sqlPassword;
                 }

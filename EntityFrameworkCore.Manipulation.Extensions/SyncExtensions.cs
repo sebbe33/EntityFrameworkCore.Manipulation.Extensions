@@ -349,7 +349,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             where TEntity : class, new()
         {
             string targetCommand = null;
-            IReadOnlyCollection<System.Data.SqlClient.SqlParameter> targetCommandParameters;
+            IReadOnlyCollection<Microsoft.Data.SqlClient.SqlParameter> targetCommandParameters;
 
             // If we got a resolver, we'll have to resolve the target.
             if (targetResolver != null)
@@ -468,7 +468,7 @@ namespace EntityFrameworkCore.Manipulation.Extensions
             }
 
             string targetCommand = null;
-            IReadOnlyCollection<System.Data.SqlClient.SqlParameter> targetCommandParameters;
+            IReadOnlyCollection<Microsoft.Data.SqlClient.SqlParameter> targetCommandParameters;
 
             // If we got a resolver, we'll have to resolve the target.
             if (targetResolver != null)
